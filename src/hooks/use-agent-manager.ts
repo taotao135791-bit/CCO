@@ -204,13 +204,18 @@ export function useAgentManager() {
   // P1-3: Session auto-restore check on startup
   useEffect(() => {
     const lastSession = sessionPersistence.getLastSession();
-    if (lastSession && lastSession.messages.length > 2) {
+    if (lastSession && lastSession.messages.length > 6) {
       const age = Date.now() - lastSession.updatedAt;
-      // Only suggest if session was from the last 24 hours
-      if (age < 24 * 60 * 60 * 1000) {
-        addSystemMessage(
-          `💾 发现上次会话: ${lastSession.name} (${lastSession.messages.length} 条消息, ${new Date(lastSession.updatedAt).toLocaleString()})。输入 /load ${lastSession.agentId} 恢复。`
-        );
+      // Only suggest if session was from 10min~24h ago (avoid showing right after save)
+      const tenMin = 10 * 60 * 1000;
+      if (age > tenMin && age < 24 * 60 * 60 * 1000) {
+        // Only show if current agent is fresh (only system prompt)
+        const current = agentManager.getActiveAgent();
+        if (current && current.messages.length <= 1) {
+          addSystemMessage(
+            `💾 发现上次会话: ${lastSession.name} (${lastSession.messages.length} 条消息, ${new Date(lastSession.updatedAt).toLocaleString()})。输入 /load ${lastSession.agentId} 恢复。`
+          );
+        }
       }
     }
   }, []);
