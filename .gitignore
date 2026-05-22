@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+*.swp
+*.swo
+*~
+
+# CCO local config (contains API keys)
+.cco/
+*.cco.json
+
+# Test artifacts
+.tmp-tests/
+coverage/
+
+# OS
+Thumbs.db
