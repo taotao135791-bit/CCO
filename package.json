@@ -1,6 +1,6 @@
 {
   "name": "claude-code-open",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Open-source Claude Code alternative. Multi-agent, any API key, zero learning curve.",
   "type": "module",
   "bin": {
