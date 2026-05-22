@@ -1,7 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { configManager } from '../core/config/manager.js';
 import { estimateCost, formatCost } from '../core/llm/cost-estimate.js';
+
+/* ── Braille spinner frames (smooth rotation) ── */
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_INTERVAL = 80; // ms per frame
+
+/** Animated spinner that only ticks while `active` is true. */
+const Spinner: React.FC<{ active: boolean; label?: string }> = ({ active, label }) => {
+  const [frame, setFrame] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      setFrame(0);
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
+    }, SPINNER_INTERVAL);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [active]);
+
+  if (!active) return null;
+
+  // Color cycles through warm palette for extra visual feedback
+  const colors = ['yellow', 'green', 'cyan', 'magenta'] as const;
+  const color = colors[frame % colors.length];
+
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text color={color} bold>{SPINNER_FRAMES[frame]}</Text>
+      {label && <Text color={color}>{label}</Text>}
+    </Box>
+  );
+};
 
 interface Props {
   activeAgent: string;
@@ -69,12 +104,12 @@ export const StatusBar: React.FC<Props> = ({
           ) : null}
         </Box>
         <Box flexDirection="row" gap={1}>
-          {isProcessing && (
-            <Text color="yellow">
-              {currentTool ? `⚙ ${currentTool}` : '⏳'}
-            </Text>
+          {isProcessing ? (
+            <Spinner active label={currentTool || '思考中'} />
+          ) : (
+            <Text color="green">✓</Text>
           )}
-          <Text color="green">{activeAgent}</Text>
+          <Text color="green" bold>{activeAgent}</Text>
           {agentCount > 1 && (
             <Text color="gray" dimColor>({agentCount})</Text>
           )}
