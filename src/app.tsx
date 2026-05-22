@@ -79,7 +79,7 @@ export const App: React.FC = () => {
     activeAgentId, setActiveAgentId, agents, plans,
     showTaskPanel, setShowTaskPanel,
     pendingPermission, decidePermission,
-    handleSubmit, addSystemMessage, tokenCounts,
+    handleSubmit, addSystemMessage, tokenCounts, currentTool,
   } = useAgentManager();
 
   /* UI toggles */
@@ -98,7 +98,7 @@ export const App: React.FC = () => {
   const { transcriptLines } = useTranscript(messages, transcriptWidth);
 
   /* Layout metrics */
-  const helpRows = showHelp ? 26 : 0;
+  const helpRows = showHelp ? 34 : 0;
   const permissionRows = pendingPermission ? 6 : 0;
   const taskRows = showTaskPanel ? 6 : 0;
   const messageViewportHeight = Math.max(3, stdout.rows - helpRows - permissionRows - taskRows - 5);
@@ -211,43 +211,34 @@ export const App: React.FC = () => {
           scrollOffset={effectiveScrollOffset}
           inputTokens={tokenCounts.input}
           outputTokens={tokenCounts.output}
+          currentTool={currentTool || undefined}
         />
       </Box>
 
-      {/* Help overlay */}
+      {/* Help overlay — categorized */}
       {showHelp && (
         <Box flexDirection="column" paddingX={1}>
-          <Text bold color="cyan">命令列表:</Text>
-          <Text color="gray">/help, /h          显示此帮助</Text>
-          <Text color="gray">/quit, /q, /exit   退出程序</Text>
+          <Text bold color="cyan">—— Agent 管理 ——</Text>
+          <Text color="gray">/new [name]        创建新 Agent     /kill &lt;id&gt;         移除 Agent</Text>
+          <Text color="gray">/role [key]        创建带角色的 Agent  /agent &lt;id&gt;        切换 Agent</Text>
+          <Text color="gray">/agents, /a, Tab   切换 Agent 面板    /msg &lt;id&gt; &lt;text&gt;  向 Agent 发送消息</Text>
+          <Text color="gray">/broadcast &lt;text&gt;  广播给所有 Agent   /delegate &lt;task&gt;   并行任务委派</Text>
+          <Text bold color="cyan">—— 会话管理 ——</Text>
+          <Text color="gray">/save              保存当前会话      /load &lt;id&gt;         加载已保存会话</Text>
+          <Text color="gray">/sessions          列出已保存会话    /branch [name]     会话分支</Text>
           <Text color="gray">/clear             清空聊天记录</Text>
-          <Text color="gray">/agents, /a, Tab   切换 Agent 面板</Text>
-          <Text color="gray">/agent &lt;id&gt;        切换到指定 Agent</Text>
-          <Text color="gray">/new [name]        创建新 Agent</Text>
-          <Text color="gray">/role [key] [name] 创建带角色的 Agent</Text>
-          <Text color="gray">/kill &lt;id&gt;         移除 Agent</Text>
-          <Text color="gray">/msg &lt;id&gt; &lt;text&gt;  向 Agent 发送消息</Text>
-          <Text color="gray">/broadcast &lt;text&gt;  广播给所有 Agent</Text>
-          <Text color="gray">/delegate &lt;task&gt;   并行任务委派</Text>
-          <Text color="gray">/tasks             切换任务面板</Text>
-          <Text color="gray">/save              保存当前会话</Text>
-          <Text color="gray">/load &lt;id&gt;         加载已保存会话</Text>
-          <Text color="gray">/sessions          列出已保存会话</Text>
-          <Text color="gray">/branch [name]     从当前位置创建会话分支</Text>
-          <Text color="gray">/model &lt;name&gt;      切换模型</Text>
-          <Text color="gray">/provider &lt;name&gt;   切换提供商</Text>
-          <Text color="gray">/skill [name]      列出或激活技能</Text>
-          <Text color="gray">/review [path]     自动代码审查</Text>
-          <Text color="gray">/pair &lt;task&gt;       结对编程</Text>
-          <Text color="gray">/swarm &lt;pat&gt; &lt;inst&gt; 多文件处理</Text>
-          <Text color="gray">/index             构建代码索引</Text>
-          <Text color="gray">/search &lt;query&gt;    搜索索引代码</Text>
-          <Text color="gray">/mcp list          列出 MCP 服务器</Text>
-          <Text color="gray">/mcp connect &lt;n&gt;   连接 MCP 服务器</Text>
-          <Text color="gray">/config            显示配置信息</Text>
-          <Text color="gray">PageUp/PageDown    滚动聊天历史</Text>
-          <Text color="gray">Shift+↑↓           滚动聊天历史</Text>
-          <Text color="gray">Alt+1-9            快速切换 Agent</Text>
+          <Text bold color="cyan">—— 开发工具 ——</Text>
+          <Text color="gray">/review [path]     自动代码审查      /pair &lt;task&gt;       结对编程</Text>
+          <Text color="gray">/swarm &lt;pat&gt; &lt;inst&gt; 多文件处理      /tasks             任务面板</Text>
+          <Text color="gray">/index             构建代码索引      /search &lt;query&gt;    搜索索引代码</Text>
+          <Text color="gray">/skill [name]      技能系统          /project           项目类型检测</Text>
+          <Text bold color="cyan">—— 系统配置 ——</Text>
+          <Text color="gray">/model &lt;name&gt;      切换模型          /provider &lt;name&gt;   切换提供商</Text>
+          <Text color="gray">/cost              查看 Token 和费用  /rules             查看项目规则</Text>
+          <Text color="gray">/mcp list/connect  MCP 服务器管理    /config            显示配置信息</Text>
+          <Text bold color="cyan">—— 快捷键 ——</Text>
+          <Text color="gray">PageUp/PageDown    滚动历史          Shift+↑↓           滚动历史</Text>
+          <Text color="gray">Alt+1-9            快速切换 Agent    Esc                中断/退出</Text>
         </Box>
       )}
 

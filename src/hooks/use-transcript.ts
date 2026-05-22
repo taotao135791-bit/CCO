@@ -37,6 +37,30 @@ export function wrapText(text: string, width: number): string[] {
   return wrapped;
 }
 
+/**
+ * Detect if a line is part of a unified diff and return its color.
+ */
+function diffLineColor(line: string): string | undefined {
+  if (line.startsWith('+') && !line.startsWith('+++')) return 'green';
+  if (line.startsWith('-') && !line.startsWith('---')) return 'red';
+  if (line.startsWith('@@')) return 'cyan';
+  if (line.startsWith('---') || line.startsWith('+++')) return 'yellow';
+  return undefined;
+}
+
+/**
+ * Basic terminal markdown: color code spans, bold headers, list markers.
+ */
+function markdownColor(line: string): { text: string; color?: string; bold?: boolean } {
+  // Headers (## ...)
+  const headerMatch = line.match(/^(#{1,3})\s+(.*)/);
+  if (headerMatch) return { text: line, color: 'cyan', bold: true };
+  // List markers (- item, * item, 1. item)
+  if (/^\s*[-*]\s/.test(line) || /^\s*\d+\.\s/.test(line)) return { text: line, color: 'white' };
+  // Inline code detection — we just return as-is (ink doesn't support inline spans easily)
+  return { text: line };
+}
+
 function buildTranscriptLines(messages: DisplayMessage[], width: number): TranscriptLine[] {
   const contentWidth = Math.max(20, width - 6);
   const lines: TranscriptLine[] = [];
@@ -56,8 +80,15 @@ function buildTranscriptLines(messages: DisplayMessage[], width: number): Transc
         text: `  Tool Result ${message.toolCallId ? `(${message.toolCallId.slice(0, 8)})` : ''}`,
         color: 'gray', dim: true,
       });
-      for (const line of wrapText(message.content.slice(0, 1000), contentWidth - 2)) {
-        lines.push({ text: `  ${line}`, color: 'gray', dim: true });
+      const toolLines = wrapText(message.content.slice(0, 2000), contentWidth - 2);
+      for (const line of toolLines) {
+        const dc = diffLineColor(line.trimStart());
+        lines.push({
+          text: `  ${line}`,
+          color: dc || 'gray',
+          dim: !dc,
+          bold: dc === 'cyan',
+        });
       }
       lines.push({ text: '' });
       continue;
@@ -69,7 +100,13 @@ function buildTranscriptLines(messages: DisplayMessage[], width: number): Transc
       lines.push({ text: '  [thinking hidden]', color: 'gray', dim: true });
     }
     for (const line of wrapText(parsed.content || '', contentWidth - 2)) {
-      lines.push({ text: `  ${line}` });
+      const md = markdownColor(line);
+      const dc = diffLineColor(line.trimStart());
+      lines.push({
+        text: `  ${md.text}`,
+        color: dc || md.color,
+        bold: md.bold,
+      });
     }
     if (message.toolCalls?.length) {
       for (const toolCall of message.toolCalls) {

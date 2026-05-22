@@ -7,6 +7,8 @@ import { sessionPersistence } from '../core/agent/persistence.js';
 import { listRoles, getRole } from '../core/agent/roles.js';
 import { workflowEngine } from '../core/agent/workflows.js';
 import { codeIndexer } from '../core/tools/indexer.js';
+import { buildCostReport } from '../core/llm/cost-estimate.js';
+import { detectProject, projectDescription } from '../core/agent/project-detect.js';
 import type { DisplayMessage } from './use-agent-manager.js';
 
 type SetMessages = React.Dispatch<React.SetStateAction<DisplayMessage[]>>;
@@ -339,7 +341,8 @@ export function useCommands(deps: CommandDeps) {
 
         case 'cost': {
           const agent = agentManager.getActiveAgent();
-          const text = `当前 Agent: ${agent.name}\n输入 Token: ${agent.totalInputTokens.toLocaleString()}\n输出 Token: ${agent.totalOutputTokens.toLocaleString()}\n总 Token: ${(agent.totalInputTokens + agent.totalOutputTokens).toLocaleString()}`;
+          const provider = configManager.getActiveProvider();
+          const text = buildCostReport(agent.totalInputTokens, agent.totalOutputTokens, provider.defaultModel);
           addSystemMessage(text);
           break;
         }
@@ -352,6 +355,12 @@ export function useCommands(deps: CommandDeps) {
           } else {
             addSystemMessage('未找到项目规则。在项目根目录创建 .cco/rules.md 来设置。');
           }
+          break;
+        }
+
+        case 'project': {
+          const info = detectProject(process.cwd());
+          addSystemMessage(projectDescription(info));
           break;
         }
 

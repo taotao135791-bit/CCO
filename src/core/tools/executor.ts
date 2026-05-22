@@ -7,6 +7,7 @@ import { cwd } from 'process';
 import { computerUse } from '../computer-use/controller.js';
 import type { ToolDefinition, ToolResult } from './definitions.js';
 import { validateBashCommand, validateUrl, clampTimeout } from '../security.js';
+import { editLock } from './edit-lock.js';
 
 const execAsync = promisify(exec);
 
@@ -237,71 +238,85 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         const path = resolvePath(args.file_path);
         const guard = ensureWritablePath(path);
         if (guard) return guard;
-        mkdirSync(dirname(path), { recursive: true });
-        writeFileSync(path, args.content, 'utf-8');
-        return { content: `Successfully wrote ${args.content.length} bytes to ${path}` };
+        const releaseWrite = await editLock.acquire(path);
+        try {
+          mkdirSync(dirname(path), { recursive: true });
+          writeFileSync(path, args.content, 'utf-8');
+          return { content: `Successfully wrote ${args.content.length} bytes to ${path}` };
+        } finally {
+          releaseWrite();
+        }
       }
 
       case 'Edit': {
         const path = resolvePath(args.file_path);
         const guard = ensureWritablePath(path);
         if (guard) return guard;
-        if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
-        let content = readFileSync(path, 'utf-8');
-        if (!content.includes(args.old_string)) {
-          return { content: `Error: Could not find the specified text in ${path}`, isError: true };
+        const releaseEdit = await editLock.acquire(path);
+        try {
+          if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
+          let content = readFileSync(path, 'utf-8');
+          if (!content.includes(args.old_string)) {
+            return { content: `Error: Could not find the specified text in ${path}`, isError: true };
+          }
+          const occurrences = content.split(args.old_string).length - 1;
+          if (occurrences > 1) {
+            return {
+              content: `Error: Found ${occurrences} matches in ${path}. Edit requires old_string to match exactly one location.`,
+              isError: true,
+            };
+          }
+          const oldContent = content;
+          content = content.replace(args.old_string, args.new_string);
+          writeFileSync(path, content, 'utf-8');
+          const diff = generateDiff(oldContent, content, path);
+          return { content: `Successfully edited ${path}\n\n${diff}` };
+        } finally {
+          releaseEdit();
         }
-        const occurrences = content.split(args.old_string).length - 1;
-        if (occurrences > 1) {
-          return {
-            content: `Error: Found ${occurrences} matches in ${path}. Edit requires old_string to match exactly one location.`,
-            isError: true,
-          };
-        }
-        const oldContent = content;
-        content = content.replace(args.old_string, args.new_string);
-        writeFileSync(path, content, 'utf-8');
-        // Generate unified diff preview
-        const diff = generateDiff(oldContent, content, path);
-        return { content: `Successfully edited ${path}\n\n${diff}` };
       }
 
       case 'MultiEdit': {
         const path = resolvePath(args.file_path);
         const guard = ensureWritablePath(path);
         if (guard) return guard;
-        if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
-        let content = readFileSync(path, 'utf-8');
-        const oldContent = content;
-        const edits: Array<{ old_string: string; new_string: string }> = args.edits || [];
-        if (!Array.isArray(edits) || edits.length === 0) {
-          return { content: 'Error: edits must be a non-empty array of {old_string, new_string}', isError: true };
+        const releaseMulti = await editLock.acquire(path);
+        try {
+          if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
+          let content = readFileSync(path, 'utf-8');
+          const oldContent = content;
+          const edits: Array<{ old_string: string; new_string: string }> = args.edits || [];
+          if (!Array.isArray(edits) || edits.length === 0) {
+            return { content: 'Error: edits must be a non-empty array of {old_string, new_string}', isError: true };
+          }
+          const applied: number[] = [];
+          const failed: string[] = [];
+          for (let i = 0; i < edits.length; i++) {
+            const { old_string, new_string } = edits[i];
+            if (!old_string || new_string === undefined) {
+              failed.push(`Edit #${i + 1}: missing old_string or new_string`);
+              continue;
+            }
+            if (!content.includes(old_string)) {
+              failed.push(`Edit #${i + 1}: text not found`);
+              continue;
+            }
+            const occ = content.split(old_string).length - 1;
+            if (occ > 1) {
+              failed.push(`Edit #${i + 1}: ${occ} matches (ambiguous)`);
+              continue;
+            }
+            content = content.replace(old_string, new_string);
+            applied.push(i + 1);
+          }
+          writeFileSync(path, content, 'utf-8');
+          const diff = generateDiff(oldContent, content, path);
+          const summary = `Applied ${applied.length}/${edits.length} edits to ${path}`;
+          const failInfo = failed.length > 0 ? `\nFailed:\n${failed.join('\n')}` : '';
+          return { content: `${summary}${failInfo}\n\n${diff}` };
+        } finally {
+          releaseMulti();
         }
-        const applied: number[] = [];
-        const failed: string[] = [];
-        for (let i = 0; i < edits.length; i++) {
-          const { old_string, new_string } = edits[i];
-          if (!old_string || new_string === undefined) {
-            failed.push(`Edit #${i + 1}: missing old_string or new_string`);
-            continue;
-          }
-          if (!content.includes(old_string)) {
-            failed.push(`Edit #${i + 1}: text not found`);
-            continue;
-          }
-          const occ = content.split(old_string).length - 1;
-          if (occ > 1) {
-            failed.push(`Edit #${i + 1}: ${occ} matches (ambiguous)`);
-            continue;
-          }
-          content = content.replace(old_string, new_string);
-          applied.push(i + 1);
-        }
-        writeFileSync(path, content, 'utf-8');
-        const diff = generateDiff(oldContent, content, path);
-        const summary = `Applied ${applied.length}/${edits.length} edits to ${path}`;
-        const failInfo = failed.length > 0 ? `\nFailed:\n${failed.join('\n')}` : '';
-        return { content: `${summary}${failInfo}\n\n${diff}` };
       }
 
       case 'Bash': {

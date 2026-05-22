@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { configManager } from '../core/config/manager.js';
+import { estimateCost, formatCost } from '../core/llm/cost-estimate.js';
 
 interface Props {
   activeAgent: string;
@@ -11,6 +12,7 @@ interface Props {
   scrollOffset?: number;
   inputTokens?: number;
   outputTokens?: number;
+  currentTool?: string;
 }
 
 export const StatusBar: React.FC<Props> = ({
@@ -22,6 +24,7 @@ export const StatusBar: React.FC<Props> = ({
   scrollOffset,
   inputTokens,
   outputTokens,
+  currentTool,
 }) => {
   const provider = configManager.get().activeProvider;
   const { stdout } = useStdout();
@@ -56,11 +59,21 @@ export const StatusBar: React.FC<Props> = ({
             <>
               <Text color="gray">·</Text>
               <Text color="cyan">{(inputTokens || 0) > 1000 ? `${((inputTokens || 0) / 1000).toFixed(1)}k` : inputTokens || 0}↑ {(outputTokens || 0) > 1000 ? `${((outputTokens || 0) / 1000).toFixed(1)}k` : outputTokens || 0}↓</Text>
+              {model && (
+                <>
+                  <Text color="gray">·</Text>
+                  <Text color="magenta">{formatCost(estimateCost(inputTokens || 0, outputTokens || 0, model))}</Text>
+                </>
+              )}
             </>
           ) : null}
         </Box>
         <Box flexDirection="row" gap={1}>
-          {isProcessing && <Text color="yellow">⏳</Text>}
+          {isProcessing && (
+            <Text color="yellow">
+              {currentTool ? `⚙ ${currentTool}` : '⏳'}
+            </Text>
+          )}
           <Text color="green">{activeAgent}</Text>
           {agentCount > 1 && (
             <Text color="gray" dimColor>({agentCount})</Text>

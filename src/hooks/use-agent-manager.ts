@@ -32,6 +32,7 @@ export function useAgentManager() {
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const [tokenCounts, setTokenCounts] = useState({ input: 0, output: 0 });
+  const [currentTool, setCurrentTool] = useState<string | null>(null);
   const idCounterRef = useRef(0);
 
   const nextId = (prefix?: string) => {
@@ -124,6 +125,7 @@ export function useAgentManager() {
 
     agentManager.onAgentToolUse = (agentId, name, args) => {
       setIsProcessing(true);
+      setCurrentTool(name);
       setMessages((prev) => [...prev, {
         id: nextId(`${agentId}_tool`), agentId,
         agentName: agentManager.getAgent(agentId)?.name || agentId,
@@ -156,6 +158,7 @@ export function useAgentManager() {
 
     agentManager.onAgentDone = () => {
       setIsProcessing(false);
+      setCurrentTool(null);
       // Update token counts from active agent
       const agent = agentManager.getActiveAgent();
       if (agent) {
@@ -233,6 +236,6 @@ export function useAgentManager() {
     activeAgentId, setActiveAgentId, agents, plans,
     showTaskPanel, setShowTaskPanel,
     pendingPermission, decidePermission,
-    handleSubmit, addSystemMessage, tokenCounts,
+    handleSubmit, addSystemMessage, tokenCounts, currentTool,
   };
 }

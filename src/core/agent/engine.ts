@@ -6,6 +6,9 @@ import { mcpManager } from '../mcp/client.js';
 import { eventBus, type AgentEvent } from './event-bus.js';
 import { sessionPersistence } from './persistence.js';
 import { compactMessages, needsCompaction } from './context-manager.js';
+import { suggestContextFiles, buildContextBlock } from './auto-context.js';
+import { detectProject, projectDescription } from './project-detect.js';
+import { cwd } from 'process';
 
 export interface AgentMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -165,7 +168,17 @@ export class Agent {
   async sendUserMessage(content: string): Promise<void> {
     // Reset abort controller for new conversation turn
     this.abortController = new AbortController();
-    this.messages.push({ role: 'user', content });
+
+    // Auto-context: suggest relevant files based on user message
+    let enrichedContent = content;
+    try {
+      const suggested = suggestContextFiles(content, 5);
+      if (suggested.length > 0) {
+        enrichedContent = content + '\n' + buildContextBlock(suggested);
+      }
+    } catch { /* ignore auto-context errors */ }
+
+    this.messages.push({ role: 'user', content: enrichedContent });
     await this.runLoop();
   }
 
@@ -376,10 +389,29 @@ export class Agent {
           }
 
           const result = await executeTool(tc.function.name, args);
-          const toolMsg: AgentMessage = { role: 'tool', content: result.content, toolCallId: tc.id };
+          let toolMsg: AgentMessage = { role: 'tool', content: result.content, toolCallId: tc.id };
+
+          // Smart retry: if Edit failed, auto-read the file and retry once
+          if (result.isError && tc.function.name === 'Edit' && result.content.includes('Could not find')) {
+            const filePath = args.file_path;
+            this.onStream?.(`[Auto-retry: reading ${filePath} to re-locate edit target]\n`);
+            try {
+              const readResult = await executeTool('Read', { file_path: filePath });
+              if (!readResult.isError) {
+                this.messages.push({
+                  role: 'tool',
+                  content: `[Auto-read for retry]:\n${readResult.content}`,
+                  toolCallId: `${tc.id}_retry_read`,
+                });
+                const retryResult = await executeTool(tc.function.name, args);
+                toolMsg = { role: 'tool', content: retryResult.content, toolCallId: tc.id };
+              }
+            } catch { /* ignore retry errors, use original result */ }
+          }
+
           this.messages.push(toolMsg);
           this.onMessage?.(toolMsg);
-          this.onToolResult?.(tc.function.name, result.content);
+          this.onToolResult?.(tc.function.name, toolMsg.content);
         }
       }
     } finally {

@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { Agent } from '../src/core/agent/engine.js';
 import { agentManager } from '../src/core/agent/manager.js';
 import { configManager } from '../src/core/config/manager.js';
+import { suggestContextFiles, buildContextBlock } from '../src/core/agent/auto-context.js';
+import { detectProject, projectDescription, recommendedGrepPatterns } from '../src/core/agent/project-detect.js';
+import { estimateCost, formatCost, getModelPricing } from '../src/core/llm/cost-estimate.js';
 
 describe('Agent', () => {
   it('should create an agent', () => {
@@ -121,6 +124,15 @@ describe('Agent', () => {
       cfg.permissions = originalPermissions;
     }
   });
+  it('should track token counts', () => {
+    const agent = new Agent({ id: 'token-test', name: 'TokenTest' });
+    expect(agent.totalInputTokens).toBe(0);
+    expect(agent.totalOutputTokens).toBe(0);
+    agent.totalInputTokens = 1000;
+    agent.totalOutputTokens = 500;
+    expect(agent.totalInputTokens).toBe(1000);
+    expect(agent.totalOutputTokens).toBe(500);
+  });
 });
 
 describe('AgentManager', () => {
@@ -134,5 +146,68 @@ describe('AgentManager', () => {
     const id = agent.id;
     agentManager.removeAgent(id);
     expect(agentManager.getAgent(id)).toBeUndefined();
+  });
+});
+
+describe('AutoContext', () => {
+  it('should return empty for empty message', () => {
+    expect(suggestContextFiles('', 5)).toEqual([]);
+  });
+
+  it('should build context block from file list', () => {
+    const block = buildContextBlock(['src/foo.ts', 'src/bar.ts']);
+    expect(block).toContain('RELEVANT PROJECT FILES');
+    expect(block).toContain('src/foo.ts');
+    expect(block).toContain('src/bar.ts');
+  });
+
+  it('should return empty block for empty list', () => {
+    expect(buildContextBlock([])).toBe('');
+  });
+});
+
+describe('ProjectDetect', () => {
+  it('should detect the current project as Node.js', () => {
+    const info = detectProject(process.cwd());
+    expect(info.type).toBe('node');
+  });
+
+  it('should generate project description', () => {
+    const info = { type: 'node', language: 'typescript', framework: 'React' };
+    const desc = projectDescription(info);
+    expect(desc).toContain('node');
+    expect(desc).toContain('React');
+  });
+
+  it('should return recommended grep patterns', () => {
+    const info = { type: 'node', language: 'typescript' };
+    const patterns = recommendedGrepPatterns(info);
+    expect(patterns).toContain('*.ts');
+    expect(patterns).toContain('*.tsx');
+  });
+});
+
+describe('CostEstimate', () => {
+  it('should look up known model pricing', () => {
+    const pricing = getModelPricing('gpt-4o');
+    expect(pricing.input).toBe(2.5);
+    expect(pricing.output).toBe(10.0);
+  });
+
+  it('should return default pricing for unknown models', () => {
+    const pricing = getModelPricing('totally-unknown-model');
+    expect(pricing.input).toBeGreaterThan(0);
+    expect(pricing.output).toBeGreaterThan(0);
+  });
+
+  it('should estimate cost correctly', () => {
+    const cost = estimateCost(1_000_000, 1_000_000, 'gpt-4o');
+    expect(cost).toBeCloseTo(12.5, 1); // 2.5 + 10.0
+  });
+
+  it('should format cost with appropriate precision', () => {
+    expect(formatCost(0.0005)).toContain('$');
+    expect(formatCost(0.5)).toBe('$0.500');
+    expect(formatCost(5.0)).toBe('$5.00');
   });
 });

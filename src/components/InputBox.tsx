@@ -1,9 +1,34 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 
 interface CommandItem {
   cmd: string;
   desc: string;
+}
+
+const HISTORY_DIR = join(homedir(), '.cco');
+const HISTORY_FILE = join(HISTORY_DIR, 'history');
+const MAX_HISTORY = 200;
+
+function loadHistory(): string[] {
+  try {
+    if (existsSync(HISTORY_FILE)) {
+      const data = readFileSync(HISTORY_FILE, 'utf-8');
+      return data.split('\n').filter(Boolean).slice(-MAX_HISTORY);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveHistory(history: string[]): void {
+  try {
+    mkdirSync(HISTORY_DIR, { recursive: true });
+    const lines = history.slice(-MAX_HISTORY).join('\n');
+    writeFileSync(HISTORY_FILE, lines, 'utf-8');
+  } catch { /* ignore */ }
 }
 
 const COMMANDS: CommandItem[] = [
@@ -32,13 +57,14 @@ const COMMANDS: CommandItem[] = [
   { cmd: '/index', desc: '构建索引' },
   { cmd: '/search', desc: '搜索代码' },
   { cmd: '/mcp', desc: 'MCP 服务器' },
+  { cmd: '/project', desc: '项目类型检测' },
   { cmd: '/model', desc: '切换模型' },
   { cmd: '/provider', desc: '切换提供商' },
   { cmd: '/config', desc: '显示配置' },
 ];
 
 const NO_ARG_COMMANDS = new Set([
-  '/help', '/quit', '/clear', '/agents', '/tasks', '/save', '/sessions', '/config', '/cost', '/rules',
+  '/help', '/quit', '/clear', '/agents', '/tasks', '/save', '/sessions', '/config', '/cost', '/rules', '/project',
 ]);
 
 const MENU_HEIGHT = 12;
@@ -83,7 +109,7 @@ export const InputBox: React.FC<Props> = ({
 }) => {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>(() => loadHistory());
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuClosed, setMenuClosed] = useState(true);
@@ -180,7 +206,11 @@ export const InputBox: React.FC<Props> = ({
       onSubmit(trimmed);
     }
 
-    setHistory((h) => [...h, trimmed]);
+    setHistory((h) => {
+      const next = [...h, trimmed];
+      saveHistory(next);
+      return next;
+    });
     setHistoryIndex(-1);
     updateQuery('', 0);
     closeMenu();
