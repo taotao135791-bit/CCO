@@ -20,6 +20,35 @@ export function parseThinking(content: string): { thinking?: string; content: st
   return { content };
 }
 
+/** Estimate display width accounting for wide (CJK) characters */
+function displayWidth(str: string): number {
+  let w = 0;
+  for (const ch of str) {
+    const code = ch.codePointAt(0) || 0;
+    if (
+      (code >= 0x1100 && code <= 0x115F) ||
+      code === 0x2329 || code === 0x232A ||
+      (code >= 0x2E80 && code <= 0x303E) ||
+      (code >= 0x3040 && code <= 0x33BF) ||
+      (code >= 0x3400 && code <= 0x4DBF) ||
+      (code >= 0x4E00 && code <= 0xA4CF) ||
+      (code >= 0xA960 && code <= 0xA97C) ||
+      (code >= 0xAC00 && code <= 0xD7A3) ||
+      (code >= 0xF900 && code <= 0xFAFF) ||
+      (code >= 0xFE10 && code <= 0xFE6F) ||
+      (code >= 0xFF01 && code <= 0xFF60) ||
+      (code >= 0xFFE0 && code <= 0xFFE6) ||
+      (code >= 0x1F300 && code <= 0x1F9FF) ||
+      (code >= 0x20000 && code <= 0x2FFFF)
+    ) {
+      w += 2;
+    } else {
+      w += 1;
+    }
+  }
+  return w;
+}
+
 export function wrapText(text: string, width: number): string[] {
   const maxWidth = Math.max(20, width);
   const physicalLines = text.split('\n');
@@ -30,9 +59,21 @@ export function wrapText(text: string, width: number): string[] {
       wrapped.push('');
       continue;
     }
-    for (let i = 0; i < line.length; i += maxWidth) {
-      wrapped.push(line.slice(i, i + maxWidth));
+    // Column-aware wrapping for wide characters (CJK = 2 cols)
+    let current = '';
+    let currentW = 0;
+    for (const ch of line) {
+      const chW = displayWidth(ch);
+      if (currentW + chW > maxWidth && current.length > 0) {
+        wrapped.push(current);
+        current = ch;
+        currentW = chW;
+      } else {
+        current += ch;
+        currentW += chW;
+      }
     }
+    if (current.length > 0) wrapped.push(current);
   }
 
   return wrapped;
@@ -71,7 +112,7 @@ function markdownColor(line: string): { text: string; color?: string; bold?: boo
 }
 
 function buildTranscriptLines(messages: DisplayMessage[], width: number): TranscriptLine[] {
-  const contentWidth = Math.max(20, width - 6);
+  const contentWidth = Math.max(20, width - 8); // extra margin for scrollbar + padding
   const lines: TranscriptLine[] = [];
 
   for (const item of messages) {
