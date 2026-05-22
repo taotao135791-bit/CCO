@@ -39,6 +39,32 @@ function truncateOutput(content: string, maxLines = 200): string {
   return lines.slice(0, maxLines).join('\n') + `\n\n... (${lines.length - maxLines} more lines)`;
 }
 
+/**
+ * Strip sensitive environment variables before passing to child processes.
+ * Prevents API keys and tokens from leaking via `printenv`, `env`, etc.
+ */
+const SENSITIVE_ENV_KEYS = [
+  'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'API_KEY',
+  'API_SECRET',
+  'SECRET_KEY',
+  'ACCESS_TOKEN',
+  'AUTH_TOKEN',
+  'PRIVATE_KEY',
+];
+
+function sanitizeEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) continue;
+    const upperKey = key.toUpperCase();
+    if (SENSITIVE_ENV_KEYS.some((s) => upperKey.includes(s))) continue;
+    result[key] = value;
+  }
+  return result;
+}
+
 export async function executeTool(name: string, args: Record<string, any>): Promise<ToolResult> {
   try {
     switch (name) {
@@ -100,7 +126,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         const { stdout, stderr } = await execAsync(command, {
           timeout,
           cwd: cwd(),
-          env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+          env: { ...sanitizeEnv(process.env), FORCE_COLOR: '0', NO_COLOR: '1' },
         });
         let output = stdout;
         if (stderr) output += `\n${stderr}`;
@@ -241,6 +267,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
 
             for (let i = 0; i < lines.length; i++) {
               if (totalMatches >= maxResults) break;
+              regex.lastIndex = 0;
               if (regex.test(lines[i])) {
                 totalMatches++;
                 const start = Math.max(0, i - contextLines);
@@ -252,9 +279,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
                   return `${marker} ${lineNum}: ${line.slice(0, 200)}`;
                 }).join('\n');
                 results.push(`${relFile}:${i + 1}\n${contextBlock}`);
-                regex.lastIndex = 0; // reset regex state
               }
-              regex.lastIndex = 0;
             }
           } catch {
             // skip unreadable files

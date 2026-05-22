@@ -181,13 +181,39 @@ export class ConfigManager {
       if (existsSync(CONFIG_FILE)) {
         const raw = readFileSync(CONFIG_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        return { ...DEFAULT_CONFIG, ...parsed };
+        return this.deepMerge(DEFAULT_CONFIG, parsed);
       }
     } catch {
       // ignore
     }
     this.save(DEFAULT_CONFIG);
     return DEFAULT_CONFIG;
+  }
+
+  /**
+   * Deep merge: start from `defaults`, overlay with `overrides`.
+   * Handles nested objects (computerUse, multiAgent, permissions, etc.).
+   * Arrays are replaced entirely, not merged.
+   */
+  private deepMerge(defaults: AppConfig, overrides: Partial<AppConfig>): AppConfig {
+    const result: any = { ...defaults };
+    for (const key of Object.keys(overrides) as (keyof AppConfig)[]) {
+      const val = overrides[key];
+      if (val === undefined) continue;
+      if (
+        typeof val === 'object' &&
+        val !== null &&
+        !Array.isArray(val) &&
+        typeof result[key] === 'object' &&
+        result[key] !== null &&
+        !Array.isArray(result[key])
+      ) {
+        result[key] = { ...result[key], ...val };
+      } else {
+        result[key] = val;
+      }
+    }
+    return result as AppConfig;
   }
 
   save(config?: AppConfig): void {

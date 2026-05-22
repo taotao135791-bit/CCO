@@ -10,7 +10,7 @@ import { installTerminalMouseInput } from './core/terminal/mouse.js';
 program
   .name('cco')
   .description('Claude Code Open - Multi-agent AI coding assistant')
-  .version('1.0.0')
+  .version('1.0.1')
   .option('-p, --provider <name>', 'Set active provider')
   .option('-m, --model <name>', 'Set model')
   .option('-k, --api-key <key>', 'Set API key')

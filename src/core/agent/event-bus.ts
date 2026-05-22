@@ -20,11 +20,11 @@ type EventHandler = (event: AgentEvent) => void | Promise<void>;
 export class AgentEventBus {
   private handlers: Map<string, Set<EventHandler>> = new Map();
   private history: AgentEvent[] = [];
-  private readonly maxHistory = 500;
+  private maxHistory = 500;
 
   /** Maximum events kept in memory. Older events are discarded. */
   setMaxHistory(max: number): void {
-    (this as any).maxHistory = max;
+    this.maxHistory = max;
     this.trimHistory();
   }
 

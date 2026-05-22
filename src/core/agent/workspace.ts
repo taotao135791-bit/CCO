@@ -45,13 +45,16 @@ export class WorkspaceManager {
     }
   }
 
-  private copyDir(src: string, dest: string): void {
+  private copyDir(src: string, dest: string, depth = 0): void {
+    if (depth > 20) return; // Prevent stack overflow on deeply nested dirs
     mkdirSync(dest, { recursive: true });
     for (const entry of readdirSync(src, { withFileTypes: true })) {
       const srcPath = join(src, entry.name);
       const destPath = join(dest, entry.name);
+      // Skip symlinks to prevent infinite loops
+      if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
-        this.copyDir(srcPath, destPath);
+        this.copyDir(srcPath, destPath, depth + 1);
       } else {
         copyFileSync(srcPath, destPath);
       }

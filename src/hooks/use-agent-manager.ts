@@ -208,7 +208,13 @@ export function useAgentManager() {
       id: nextId(`${agent.id}_user`), agentId: agent.id, agentName: agent.name,
       message: { role: 'user', content: value },
     }]);
-    await agent.sendUserMessage(value);
+    try {
+      await agent.sendUserMessage(value);
+    } catch (err: any) {
+      addSystemMessage(`Error: ${err.message || String(err)}`);
+    } finally {
+      setIsProcessing(false);
+    }
   }, [isProcessing, addSystemMessage]);
 
   return {
