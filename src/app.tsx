@@ -79,7 +79,7 @@ export const App: React.FC = () => {
     activeAgentId, setActiveAgentId, agents, plans,
     showTaskPanel, setShowTaskPanel,
     pendingPermission, decidePermission,
-    handleSubmit, addSystemMessage, tokenCounts, currentTool,
+    handleSubmit, addSystemMessage, tokenCounts, contextPercent, currentTool,
   } = useAgentManager();
 
   /* UI toggles */
@@ -212,6 +212,7 @@ export const App: React.FC = () => {
           inputTokens={tokenCounts.input}
           outputTokens={tokenCounts.output}
           currentTool={currentTool || undefined}
+          contextPercent={contextPercent}
         />
       </Box>
 
@@ -232,6 +233,8 @@ export const App: React.FC = () => {
           <Text color="gray">/swarm &lt;pat&gt; &lt;inst&gt; 多文件处理      /tasks             任务面板</Text>
           <Text color="gray">/index             构建代码索引      /search &lt;query&gt;    搜索索引代码</Text>
           <Text color="gray">/skill [name]      技能系统          /project           项目类型检测</Text>
+          <Text color="gray">/diff              文件变更汇总      /perf              性能分析</Text>
+          <Text color="gray">/template [name]   项目模板          /plugins           插件系统</Text>
           <Text bold color="cyan">—— 系统配置 ——</Text>
           <Text color="gray">/model &lt;name&gt;      切换模型          /provider &lt;name&gt;   切换提供商</Text>
           <Text color="gray">/cost              查看 Token 和费用  /rules             查看项目规则</Text>

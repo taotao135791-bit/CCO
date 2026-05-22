@@ -61,10 +61,14 @@ const COMMANDS: CommandItem[] = [
   { cmd: '/model', desc: '切换模型' },
   { cmd: '/provider', desc: '切换提供商' },
   { cmd: '/config', desc: '显示配置' },
+  { cmd: '/diff', desc: '文件变更汇总' },
+  { cmd: '/perf', desc: '性能分析' },
+  { cmd: '/template', desc: '项目模板' },
+  { cmd: '/plugins', desc: '插件系统' },
 ];
 
 const NO_ARG_COMMANDS = new Set([
-  '/help', '/quit', '/clear', '/agents', '/tasks', '/save', '/sessions', '/config', '/cost', '/rules', '/project',
+  '/help', '/quit', '/clear', '/agents', '/tasks', '/save', '/sessions', '/config', '/cost', '/rules', '/project', '/diff', '/perf', '/plugins',
 ]);
 
 const MENU_HEIGHT = 12;

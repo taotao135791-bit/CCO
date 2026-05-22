@@ -5,7 +5,7 @@ import { configManager } from '../config/manager.js';
 import { mcpManager } from '../mcp/client.js';
 import { eventBus, type AgentEvent } from './event-bus.js';
 import { sessionPersistence } from './persistence.js';
-import { compactMessages, needsCompaction } from './context-manager.js';
+import { compactMessages, needsCompaction, estimateMessageTokens } from './context-manager.js';
 import { suggestContextFiles, buildContextBlock } from './auto-context.js';
 import { detectProject, projectDescription } from './project-detect.js';
 import { cwd } from 'process';
@@ -96,6 +96,11 @@ export class Agent {
   /* ── Token tracking ── */
   totalInputTokens: number = 0;
   totalOutputTokens: number = 0;
+
+  /* ── Context window tracking ── */
+  contextTokens: number = 0;
+  contextMaxTokens: number = 128000; // default context window
+  toolTimings: Array<{ tool: string; duration: number }> = [];
 
   onMessage?: (msg: AgentMessage) => void;
   onToolUse?: (name: string, args: Record<string, any>) => void;
@@ -296,7 +301,21 @@ export class Agent {
           }
         } catch (err: any) {
           streamError = err.message || String(err);
-          fullContent += `\n\n[Error: ${streamError}]`;
+          // P0-3: Friendly error messages
+          const errMsg = streamError || '';
+          let friendlyError = errMsg;
+          if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('api_key')) {
+            friendlyError = '❌ API 密钥无效或已过期。请检查配置: /config 查看当前设置，或设置新的 API Key。';
+          } else if (errMsg.includes('429') || errMsg.includes('rate limit')) {
+            friendlyError = '⚠️ API 请求频率超限，稍后自动重试。如果持续出现，考虑切换模型: /model <name>';
+          } else if (errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT')) {
+            friendlyError = '⏱️ 请求超时。可能是网络问题或模型服务过载，请稍后重试。';
+          } else if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ENOTFOUND') || errMsg.includes('network')) {
+            friendlyError = '🌐 网络连接失败。请检查网络或 API Base URL (/config)。';
+          } else if (errMsg.includes('model') && errMsg.includes('not found')) {
+            friendlyError = `❌ 模型不存在。当前: ${this.llm.getModel()}。请切换: /model <name>`;
+          }
+          fullContent += `\n\n${friendlyError}`;
         }
 
         const displayContent = reasoningContent
@@ -388,7 +407,10 @@ export class Agent {
             continue;
           }
 
+          const toolStart = Date.now();
           const result = await executeTool(tc.function.name, args);
+          const toolDuration = Date.now() - toolStart;
+          this.toolTimings.push({ tool: tc.function.name, duration: toolDuration });
           let toolMsg: AgentMessage = { role: 'tool', content: result.content, toolCallId: tc.id };
 
           // Smart retry: if Edit failed, auto-read the file and retry once
@@ -421,6 +443,9 @@ export class Agent {
 
       // Auto-save session
       sessionPersistence.autoSave(this.id, this.name, this.messages, this.parentAgent);
+
+      // Update context token count
+      this.contextTokens = estimateMessageTokens(this.messages);
 
       // Process next pending event
       if (this.pendingEvents.length > 0) {

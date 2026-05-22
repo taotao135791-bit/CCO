@@ -9,6 +9,9 @@ import { workflowEngine } from '../core/agent/workflows.js';
 import { codeIndexer } from '../core/tools/indexer.js';
 import { buildCostReport } from '../core/llm/cost-estimate.js';
 import { detectProject, projectDescription } from '../core/agent/project-detect.js';
+import { diffTracker } from '../core/tools/diff-tracker.js';
+import { pluginLoader } from '../core/plugins/loader.js';
+import { listTemplates, applyTemplate } from '../core/tools/template-gen.js';
 import type { DisplayMessage } from './use-agent-manager.js';
 
 type SetMessages = React.Dispatch<React.SetStateAction<DisplayMessage[]>>;
@@ -361,6 +364,73 @@ export function useCommands(deps: CommandDeps) {
         case 'project': {
           const info = detectProject(process.cwd());
           addSystemMessage(projectDescription(info));
+          break;
+        }
+
+        case 'diff': {
+          const summary = diffTracker.summary();
+          addSystemMessage(summary);
+          break;
+        }
+
+        case 'perf': {
+          const agent = agentManager.getActiveAgent();
+          const timings = agent.toolTimings;
+          if (timings.length === 0) {
+            addSystemMessage('暂无工具调用记录。');
+            break;
+          }
+          const totalTime = timings.reduce((sum, t) => sum + t.duration, 0);
+          const avgTime = totalTime / timings.length;
+          const byTool: Record<string, { count: number; total: number }> = {};
+          for (const t of timings) {
+            if (!byTool[t.tool]) byTool[t.tool] = { count: 0, total: 0 };
+            byTool[t.tool].count++;
+            byTool[t.tool].total += t.duration;
+          }
+          const lines = [
+            `📊 性能分析 (${timings.length} 次工具调用, 总耗时 ${totalTime}ms)`,
+            `  平均: ${Math.round(avgTime)}ms/调用`,
+            '',
+            '  工具              次数    总耗时    平均',
+          ];
+          for (const [tool, stats] of Object.entries(byTool).sort((a, b) => b[1].total - a[1].total)) {
+            const avg = Math.round(stats.total / stats.count);
+            lines.push(`  ${tool.padEnd(18)} ${String(stats.count).padStart(3)}   ${String(stats.total + 'ms').padStart(8)}   ${avg}ms`);
+          }
+          lines.push('');
+          lines.push(`  Token: ${agent.totalInputTokens}↑ ${agent.totalOutputTokens}↓`);
+          lines.push(`  上下文: ${agent.contextTokens}/${agent.contextMaxTokens} (${Math.round((agent.contextTokens / agent.contextMaxTokens) * 100)}%)`);
+          addSystemMessage(lines.join('\n'));
+          break;
+        }
+
+        case 'template': {
+          const templateKey = args[0];
+          if (!templateKey) {
+            const templates = listTemplates();
+            const text = templates.map((t) => `  • ${t.key}: ${t.name} - ${t.description}`).join('\n');
+            addSystemMessage(`可用模板:\n${text}\n\n用法: /template <名称>`);
+            break;
+          }
+          const created = applyTemplate(templateKey);
+          if (created.length > 0) {
+            addSystemMessage(`✅ 已创建模板文件:\n${created.map((f) => `  📄 ${f}`).join('\n')}`);
+          } else {
+            addSystemMessage(`模板 "${templateKey}" 不存在或文件已存在。输入 /template 查看可用模板。`);
+          }
+          break;
+        }
+
+        case 'plugins': {
+          const count = pluginLoader.load();
+          const plugins = pluginLoader.list();
+          if (plugins.length === 0) {
+            addSystemMessage(`未找到插件。将 JSON 插件配置放入 ~/.cco/plugins/ 目录。`);
+            break;
+          }
+          const text = plugins.map((p) => `  • /${p.command}: ${p.name} - ${p.description}`).join('\n');
+          addSystemMessage(`已加载 ${count} 个插件:\n${text}`);
           break;
         }
 

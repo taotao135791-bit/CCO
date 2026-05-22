@@ -48,6 +48,7 @@ interface Props {
   inputTokens?: number;
   outputTokens?: number;
   currentTool?: string;
+  contextPercent?: number;
 }
 
 export const StatusBar: React.FC<Props> = ({
@@ -60,6 +61,7 @@ export const StatusBar: React.FC<Props> = ({
   inputTokens,
   outputTokens,
   currentTool,
+  contextPercent,
 }) => {
   const provider = configManager.get().activeProvider;
   const { stdout } = useStdout();
@@ -102,6 +104,12 @@ export const StatusBar: React.FC<Props> = ({
               )}
             </>
           ) : null}
+          {contextPercent !== undefined && contextPercent > 0 && (
+            <>
+              <Text color="gray">·</Text>
+              <Text color={contextPercent > 80 ? 'red' : contextPercent > 60 ? 'yellow' : 'green'}>CTX {contextPercent}%</Text>
+            </>
+          )}
         </Box>
         <Box flexDirection="row" gap={1}>
           {isProcessing ? (

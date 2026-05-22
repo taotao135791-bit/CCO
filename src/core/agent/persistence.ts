@@ -82,6 +82,14 @@ export class SessionPersistence {
   }
 
   /**
+   * Get the most recently updated session (for auto-restore on startup).
+   */
+  getLastSession(): SessionData | null {
+    const sessions = this.listSessions();
+    return sessions.length > 0 ? sessions[0] : null;
+  }
+
+  /**
    * Create a session branch from a specific message index.
    * Returns the truncated message array or null on failure.
    */

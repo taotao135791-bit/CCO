@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { agentManager } from '../core/agent/manager.js';
 import { configManager } from '../core/config/manager.js';
 import { autoParallel } from '../core/agent/auto-parallel.js';
+import { sessionPersistence } from '../core/agent/persistence.js';
 import type { AgentMessage, PermissionDecision, PermissionRequest } from '../core/agent/engine.js';
 import type { AgentInfo } from '../core/agent/manager.js';
 import type { TaskPlan } from '../core/agent/coordinator.js';
@@ -32,6 +33,7 @@ export function useAgentManager() {
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const [tokenCounts, setTokenCounts] = useState({ input: 0, output: 0 });
+  const [contextPercent, setContextPercent] = useState(0);
   const [currentTool, setCurrentTool] = useState<string | null>(null);
   const idCounterRef = useRef(0);
 
@@ -163,6 +165,11 @@ export function useAgentManager() {
       const agent = agentManager.getActiveAgent();
       if (agent) {
         setTokenCounts({ input: agent.totalInputTokens, output: agent.totalOutputTokens });
+        setContextPercent(
+          agent.contextMaxTokens > 0
+            ? Math.round((agent.contextTokens / agent.contextMaxTokens) * 100)
+            : 0
+        );
       }
       if (streamThrottleRef.current) {
         clearTimeout(streamThrottleRef.current);
@@ -192,6 +199,20 @@ export function useAgentManager() {
         });
       }
     };
+  }, []);
+
+  // P1-3: Session auto-restore check on startup
+  useEffect(() => {
+    const lastSession = sessionPersistence.getLastSession();
+    if (lastSession && lastSession.messages.length > 2) {
+      const age = Date.now() - lastSession.updatedAt;
+      // Only suggest if session was from the last 24 hours
+      if (age < 24 * 60 * 60 * 1000) {
+        addSystemMessage(
+          `💾 发现上次会话: ${lastSession.name} (${lastSession.messages.length} 条消息, ${new Date(lastSession.updatedAt).toLocaleString()})。输入 /load ${lastSession.agentId} 恢复。`
+        );
+      }
+    }
   }, []);
 
   const addSystemMessage = useCallback((content: string): void => {
@@ -236,6 +257,6 @@ export function useAgentManager() {
     activeAgentId, setActiveAgentId, agents, plans,
     showTaskPanel, setShowTaskPanel,
     pendingPermission, decidePermission,
-    handleSubmit, addSystemMessage, tokenCounts, currentTool,
+    handleSubmit, addSystemMessage, tokenCounts, contextPercent, currentTool,
   };
 }

@@ -6,6 +6,7 @@ export interface TranscriptLine {
   color?: string;
   bold?: boolean;
   dim?: boolean;
+  italic?: boolean;
 }
 
 export function parseThinking(content: string): { thinking?: string; content: string } {
@@ -48,16 +49,24 @@ function diffLineColor(line: string): string | undefined {
   return undefined;
 }
 
+/** Max tool result lines shown before collapsing */
+const TOOL_COLLAPSE_THRESHOLD = 15;
+const TOOL_COLLAPSE_PREVIEW = 5;
+
 /**
- * Basic terminal markdown: color code spans, bold headers, list markers.
+ * Enhanced markdown: code blocks, inline code, headers, lists, bold/italic.
+ * Returns styled line info.
  */
-function markdownColor(line: string): { text: string; color?: string; bold?: boolean } {
+function markdownColor(line: string): { text: string; color?: string; bold?: boolean; italic?: boolean } {
   // Headers (## ...)
   const headerMatch = line.match(/^(#{1,3})\s+(.*)/);
-  if (headerMatch) return { text: line, color: 'cyan', bold: true };
+  if (headerMatch) return { text: `  ${line}`, color: 'cyan', bold: true };
+  // Bold text **...**
+  if (/\*\*[^*]+\*\*/.test(line)) return { text: line, bold: true };
+  // Italic *...*
+  if (/^\s*\*[^*]+\*\s*$/.test(line)) return { text: line, italic: true };
   // List markers (- item, * item, 1. item)
   if (/^\s*[-*]\s/.test(line) || /^\s*\d+\.\s/.test(line)) return { text: line, color: 'white' };
-  // Inline code detection — we just return as-is (ink doesn't support inline spans easily)
   return { text: line };
 }
 
@@ -76,19 +85,30 @@ function buildTranscriptLines(messages: DisplayMessage[], width: number): Transc
     }
 
     if (message.role === 'tool') {
-      lines.push({
-        text: `  Tool Result ${message.toolCallId ? `(${message.toolCallId.slice(0, 8)})` : ''}`,
-        color: 'gray', dim: true,
-      });
-      const toolLines = wrapText(message.content.slice(0, 2000), contentWidth - 2);
-      for (const line of toolLines) {
-        const dc = diffLineColor(line.trimStart());
+      const rawLines = wrapText(message.content.slice(0, 4000), contentWidth - 2);
+      const isLong = rawLines.length > TOOL_COLLAPSE_THRESHOLD;
+      const toolLabel = message.toolCallId ? `(${message.toolCallId.slice(0, 8)})` : '';
+
+      if (isLong) {
+        // Collapsed: show first N lines + expand hint
         lines.push({
-          text: `  ${line}`,
-          color: dc || 'gray',
-          dim: !dc,
-          bold: dc === 'cyan',
+          text: `  ▸ Tool Result ${toolLabel} [${rawLines.length} lines — scroll to expand]`,
+          color: 'yellow', dim: true,
         });
+        for (const line of rawLines.slice(0, TOOL_COLLAPSE_PREVIEW)) {
+          const dc = diffLineColor(line.trimStart());
+          lines.push({ text: `  ${line}`, color: dc || 'gray', dim: !dc, bold: dc === 'cyan' });
+        }
+        lines.push({ text: `    ... (${rawLines.length - TOOL_COLLAPSE_PREVIEW} more lines)`, color: 'gray', dim: true });
+      } else {
+        lines.push({
+          text: `  Tool Result ${toolLabel}`,
+          color: 'gray', dim: true,
+        });
+        for (const line of rawLines) {
+          const dc = diffLineColor(line.trimStart());
+          lines.push({ text: `  ${line}`, color: dc || 'gray', dim: !dc, bold: dc === 'cyan' });
+        }
       }
       lines.push({ text: '' });
       continue;
@@ -99,13 +119,46 @@ function buildTranscriptLines(messages: DisplayMessage[], width: number): Transc
     if (parsed.thinking) {
       lines.push({ text: '  [thinking hidden]', color: 'gray', dim: true });
     }
-    for (const line of wrapText(parsed.content || '', contentWidth - 2)) {
-      const md = markdownColor(line);
-      const dc = diffLineColor(line.trimStart());
+    // Track code block state across lines
+    let inCodeBlock = false;
+    let codeBlockLang = '';
+    for (const rawLine of wrapText(parsed.content || '', contentWidth - 2)) {
+      // Code fence detection (``` or ~~~)
+      const fenceMatch = rawLine.trimStart().match(/^(`{3,}|~{3,})\s*(\w*)/);
+      if (fenceMatch) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          codeBlockLang = fenceMatch[2] || '';
+          lines.push({
+            text: `  ┌─${codeBlockLang ? ` ${codeBlockLang} ` : ''}${'─'.repeat(Math.max(0, contentWidth - codeBlockLang.length - 8))}┐`,
+            color: 'magenta', dim: true,
+          });
+        } else {
+          inCodeBlock = false;
+          codeBlockLang = '';
+          lines.push({
+            text: `  └${'─'.repeat(Math.max(0, contentWidth - 4))}┘`,
+            color: 'magenta', dim: true,
+          });
+        }
+        continue;
+      }
+
+      if (inCodeBlock) {
+        // Code block content — dimmed background feel
+        lines.push({ text: `  │ ${rawLine}`, color: 'magenta', dim: false });
+        continue;
+      }
+
+      const dc = diffLineColor(rawLine.trimStart());
+      const md = markdownColor(rawLine);
+      // Inline code highlighting: `code`
+      const hasInlineCode = /`[^`]+`/.test(rawLine);
       lines.push({
         text: `  ${md.text}`,
-        color: dc || md.color,
+        color: dc || md.color || (hasInlineCode ? 'yellow' : undefined),
         bold: md.bold,
+        italic: md.italic,
       });
     }
     if (message.toolCalls?.length) {

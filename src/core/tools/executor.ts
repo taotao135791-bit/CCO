@@ -8,6 +8,7 @@ import { computerUse } from '../computer-use/controller.js';
 import type { ToolDefinition, ToolResult } from './definitions.js';
 import { validateBashCommand, validateUrl, clampTimeout } from '../security.js';
 import { editLock } from './edit-lock.js';
+import { diffTracker } from './diff-tracker.js';
 
 const execAsync = promisify(exec);
 
@@ -241,7 +242,9 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         const releaseWrite = await editLock.acquire(path);
         try {
           mkdirSync(dirname(path), { recursive: true });
+          const oldContent = existsSync(path) ? readFileSync(path, 'utf-8') : '';
           writeFileSync(path, args.content, 'utf-8');
+          diffTracker.record(path, oldContent, args.content);
           return { content: `Successfully wrote ${args.content.length} bytes to ${path}` };
         } finally {
           releaseWrite();
@@ -269,6 +272,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
           const oldContent = content;
           content = content.replace(args.old_string, args.new_string);
           writeFileSync(path, content, 'utf-8');
+          diffTracker.record(path, oldContent, content);
           const diff = generateDiff(oldContent, content, path);
           return { content: `Successfully edited ${path}\n\n${diff}` };
         } finally {
@@ -310,6 +314,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
             applied.push(i + 1);
           }
           writeFileSync(path, content, 'utf-8');
+          diffTracker.record(path, oldContent, content);
           const diff = generateDiff(oldContent, content, path);
           const summary = `Applied ${applied.length}/${edits.length} edits to ${path}`;
           const failInfo = failed.length > 0 ? `\nFailed:\n${failed.join('\n')}` : '';
