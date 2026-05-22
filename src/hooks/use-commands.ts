@@ -51,6 +51,7 @@ export function useCommands(deps: CommandDeps) {
 
         case 'clear':
           deps.setMessages([]);
+          addSystemMessage('聊天记录已清空');
           break;
 
         case 'agents':
@@ -63,9 +64,9 @@ export function useCommands(deps: CommandDeps) {
           if (agentId && agentManager.getAgent(agentId)) {
             agentManager.setActiveAgent(agentId);
             setActiveAgentId(agentId);
-            addSystemMessage(`Switched to agent: ${agentId}`);
+            addSystemMessage(`已切换到 Agent: ${agentId}`);
           } else {
-            addSystemMessage(`Agent not found: ${agentId}`);
+            addSystemMessage(`未找到 Agent: ${agentId}`);
           }
           break;
         }
@@ -75,7 +76,7 @@ export function useCommands(deps: CommandDeps) {
           const agent = agentManager.createAgent({ name });
           agentManager.setActiveAgent(agent.id);
           setActiveAgentId(agent.id);
-          addSystemMessage(`Created new agent: ${agent.name} (${agent.id})`);
+          addSystemMessage(`已创建新 Agent: ${agent.name} (${agent.id})`);
           break;
         }
 
@@ -84,7 +85,7 @@ export function useCommands(deps: CommandDeps) {
           if (!roleKey) {
             const roles = listRoles();
             const text = roles.map((r) => `  • ${r.key}: ${r.name} - ${r.description}`).join('\n');
-            addSystemMessage(`Available roles:\n${text}`);
+            addSystemMessage(`可用角色:\n${text}`);
             break;
           }
           const role = getRole(roleKey);
@@ -93,9 +94,9 @@ export function useCommands(deps: CommandDeps) {
             const agent = agentManager.createAgent({ name, systemPrompt: role.systemPrompt });
             agentManager.setActiveAgent(agent.id);
             setActiveAgentId(agent.id);
-            addSystemMessage(`Created ${role.name}: ${agent.name} (${agent.id})`);
+            addSystemMessage(`已创建 ${role.name}: ${agent.name} (${agent.id})`);
           } else {
-            addSystemMessage(`Role not found: ${roleKey}. Type /role to list.`);
+            addSystemMessage(`未找到角色: ${roleKey}，输入 /role 查看列表`);
           }
           break;
         }
@@ -104,9 +105,9 @@ export function useCommands(deps: CommandDeps) {
           const killId = args[0];
           if (killId && killId !== 'main') {
             agentManager.removeAgent(killId);
-            addSystemMessage(`Removed agent: ${killId}`);
+            addSystemMessage(`已移除 Agent: ${killId}`);
           } else {
-            addSystemMessage('Cannot remove main agent or invalid id');
+            addSystemMessage('无法移除 main Agent 或无效的 ID');
           }
           break;
         }
@@ -116,9 +117,9 @@ export function useCommands(deps: CommandDeps) {
           const content = contentParts.join(' ');
           if (toId && content) {
             agentManager.sendAgentMessage(activeAgentId, toId, content);
-            addSystemMessage(`Message sent to ${toId}: ${content}`);
+            addSystemMessage(`已发送给 ${toId}: ${content}`);
           } else {
-            addSystemMessage('Usage: /msg <agent-id> <message>');
+            addSystemMessage('用法: /msg <agent-id> <消息内容>');
           }
           break;
         }
@@ -126,24 +127,24 @@ export function useCommands(deps: CommandDeps) {
         case 'broadcast': {
           const bcontent = args.join(' ');
           agentManager.broadcast(activeAgentId, bcontent);
-          addSystemMessage(`Broadcast: ${bcontent}`);
+          addSystemMessage(`已广播: ${bcontent}`);
           break;
         }
 
         case 'delegate': {
           const task = args.join(' ');
           if (task) {
-            addSystemMessage(`Delegating task: ${task}`);
+            addSystemMessage(`正在委派任务: ${task}`);
             setIsProcessing(true);
             try {
               await agentManager.delegateTask(task);
-              addSystemMessage('Task delegation complete');
+              addSystemMessage('任务委派完成');
             } catch (err: any) {
-              addSystemMessage(`Delegation failed: ${err.message || String(err)}`);
+              addSystemMessage(`委派失败: ${err.message || String(err)}`);
             }
             setIsProcessing(false);
           } else {
-            addSystemMessage('Usage: /delegate <task description>');
+            addSystemMessage('用法: /delegate <任务描述>');
           }
           break;
         }
@@ -153,7 +154,7 @@ export function useCommands(deps: CommandDeps) {
           if (model) {
             const provider = configManager.getActiveProvider();
             configManager.updateProvider(provider.name, { defaultModel: model });
-            addSystemMessage(`Model set to: ${model}`);
+            addSystemMessage(`模型已切换为: ${model}`);
           }
           break;
         }
@@ -162,7 +163,7 @@ export function useCommands(deps: CommandDeps) {
           const providerName = args[0];
           if (providerName) {
             configManager.setActiveProvider(providerName);
-            addSystemMessage(`Provider switched to: ${providerName}`);
+            addSystemMessage(`提供商已切换为: ${providerName}`);
           }
           break;
         }
@@ -173,16 +174,16 @@ export function useCommands(deps: CommandDeps) {
           if (!skillName) {
             const skills = skillRegistry.list();
             const text = skills.map((s) => `  • ${s.name}: ${s.description}`).join('\n');
-            addSystemMessage(`Available skills:\n${text}`);
+            addSystemMessage(`可用技能:\n${text}`);
             break;
           }
           const skill = skillRegistry.get(skillName);
           if (skill) {
             const agent = agentManager.getActiveAgent();
             agent.messages[0] = { role: 'system', content: skill.prompt, agent: agent.name };
-            addSystemMessage(`Skill activated: ${skill.name}\n${skill.description}`);
+            addSystemMessage(`技能已激活: ${skill.name}\n${skill.description}`);
           } else {
-            addSystemMessage(`Skill not found: ${skillName}`);
+            addSystemMessage(`未找到技能: ${skillName}`);
           }
           break;
         }
@@ -193,9 +194,9 @@ export function useCommands(deps: CommandDeps) {
           workflowEngine.reviewCode(target).then((result) => {
             setIsProcessing(false);
             if (result.success) {
-              addSystemMessage(`Code review complete. ${result.summary}`);
+              addSystemMessage(`代码审查完成。${result.summary}`);
             } else {
-              addSystemMessage(`Review failed: ${result.error}`);
+              addSystemMessage(`审查失败: ${result.error}`);
             }
           });
           break;
@@ -207,10 +208,10 @@ export function useCommands(deps: CommandDeps) {
             setIsProcessing(true);
             workflowEngine.pairProgramming(task).then((result) => {
               setIsProcessing(false);
-              addSystemMessage(`Pair programming started. ${result.summary}`);
+              addSystemMessage(`结对编程已启动。${result.summary}`);
             });
           } else {
-            addSystemMessage('Usage: /pair <coding task>');
+            addSystemMessage('用法: /pair <编码任务>');
           }
           break;
         }
@@ -223,13 +224,13 @@ export function useCommands(deps: CommandDeps) {
             workflowEngine.swarm(pattern, instruction).then((result) => {
               setIsProcessing(false);
               if (result.success) {
-                addSystemMessage(`Swarm complete. ${result.summary}`);
+                addSystemMessage(`批量处理完成。${result.summary}`);
               } else {
-                addSystemMessage(`Swarm failed: ${result.error}`);
+                addSystemMessage(`批量处理失败: ${result.error}`);
               }
             });
           } else {
-            addSystemMessage('Usage: /swarm <glob-pattern> <instruction>');
+            addSystemMessage('用法: /swarm <glob模式> <指令>');
           }
           break;
         }
@@ -239,7 +240,7 @@ export function useCommands(deps: CommandDeps) {
           codeIndexer.buildIndex().then((count) => {
             setIsProcessing(false);
             const stats = codeIndexer.getStats();
-            addSystemMessage(`Indexed ${count} files. Total: ${stats.totalFiles} files, ${(stats.totalSize / 1024).toFixed(1)} KB`);
+            addSystemMessage(`已索引 ${count} 个文件。总计: ${stats.totalFiles} 个文件，${(stats.totalSize / 1024).toFixed(1)} KB`);
           });
           break;
         }
@@ -249,9 +250,9 @@ export function useCommands(deps: CommandDeps) {
           if (query) {
             const results = codeIndexer.search(query);
             const text = results.map((r) => `  • ${r.path} (${(r.size / 1024).toFixed(1)} KB)`).join('\n');
-            addSystemMessage(`Search results for "${query}":\n${text || 'No matches'}`);
+            addSystemMessage(`搜索 "${query}" 的结果:\n${text || '无匹配结果'}`);
           } else {
-            addSystemMessage('Usage: /search <query>');
+            addSystemMessage('用法: /search <查询关键词>');
           }
           break;
         }
@@ -260,20 +261,20 @@ export function useCommands(deps: CommandDeps) {
           const mcpCmd = args[0];
           if (mcpCmd === 'list') {
             const servers = mcpManager.getServerNames();
-            const text = servers.length ? servers.join('\n') : 'No MCP servers connected';
-            addSystemMessage(`MCP Servers:\n${text}`);
+            const text = servers.length ? servers.join('\n') : '无 MCP 服务器连接';
+            addSystemMessage(`MCP 服务器:\n${text}`);
           } else if (mcpCmd === 'connect' && args[1]) {
             const serverName = args[1];
             const cfg = configManager.get().mcpServers[serverName];
             if (cfg) {
               mcpManager.connectServer(serverName, cfg)
-                .then(() => addSystemMessage(`MCP server connected: ${serverName}`))
-                .catch((err: any) => addSystemMessage(`Failed: ${err.message || String(err)}`));
+                .then(() => addSystemMessage(`MCP 服务器已连接: ${serverName}`))
+                .catch((err: any) => addSystemMessage(`连接失败: ${err.message || String(err)}`));
             } else {
-              addSystemMessage(`MCP server config not found: ${serverName}`);
+              addSystemMessage(`未找到 MCP 配置: ${serverName}`);
             }
           } else {
-            addSystemMessage('Usage: /mcp list | /mcp connect <name>');
+            addSystemMessage('用法: /mcp list | /mcp connect <名称>');
           }
           break;
         }
@@ -285,7 +286,7 @@ export function useCommands(deps: CommandDeps) {
         case 'save': {
           const agent = agentManager.getActiveAgent();
           sessionPersistence.autoSave(agent.id, agent.name, agent.messages, agent.parentAgent);
-          addSystemMessage(`Session saved: ${agent.name}`);
+          addSystemMessage(`会话已保存: ${agent.name}`);
           break;
         }
 
@@ -300,12 +301,12 @@ export function useCommands(deps: CommandDeps) {
               agent.messages = session.messages;
               agentManager.setActiveAgent(agent.id);
               setActiveAgentId(agent.id);
-              addSystemMessage(`Loaded session: ${session.name} (${session.messages.length} messages)`);
+              addSystemMessage(`已加载会话: ${session.name} (${session.messages.length} 条消息)`);
             } else {
-              addSystemMessage(`Session not found: ${loadId}`);
+              addSystemMessage(`未找到会话: ${loadId}`);
             }
           } else {
-            addSystemMessage('Usage: /load <agent-id>');
+            addSystemMessage('用法: /load <agent-id>');
           }
           break;
         }
@@ -313,9 +314,44 @@ export function useCommands(deps: CommandDeps) {
         case 'sessions': {
           const sessions = sessionPersistence.listSessions();
           const text = sessions
-            .map((s) => `  • ${s.name} (${s.agentId}) - ${s.messages.length} msgs - ${new Date(s.updatedAt).toLocaleString()}`)
+            .map((s) => `  • ${s.name} (${s.agentId}) - ${s.messages.length} 条消息 - ${new Date(s.updatedAt).toLocaleString()}`)
             .join('\n');
-          addSystemMessage(text || 'No saved sessions');
+          addSystemMessage(text || '无已保存的会话');
+          break;
+        }
+
+        case 'branch': {
+          const branchName = args[0] || `分支_${Date.now()}`;
+          const agent = agentManager.getActiveAgent();
+          const msgIndex = args[1] ? parseInt(args[1]) : agent.messages.length - 1;
+          const branched = sessionPersistence.createBranch(branchName, agent.messages, msgIndex);
+          if (branched) {
+            const newAgent = agentManager.createAgent({ name: branchName });
+            newAgent.messages = branched;
+            agentManager.setActiveAgent(newAgent.id);
+            setActiveAgentId(newAgent.id);
+            addSystemMessage(`已创建会话分支: ${branchName} (${branched.length} 条消息)`);
+          } else {
+            addSystemMessage('创建分支失败');
+          }
+          break;
+        }
+
+        case 'cost': {
+          const agent = agentManager.getActiveAgent();
+          const text = `当前 Agent: ${agent.name}\n输入 Token: ${agent.totalInputTokens.toLocaleString()}\n输出 Token: ${agent.totalOutputTokens.toLocaleString()}\n总 Token: ${(agent.totalInputTokens + agent.totalOutputTokens).toLocaleString()}`;
+          addSystemMessage(text);
+          break;
+        }
+
+        case 'rules': {
+          const rules = configManager.getProjectRules();
+          if (rules) {
+            const rulesPath = configManager.getProjectRulesPath() || '.cco/rules.md';
+            addSystemMessage(`项目规则 (${rulesPath}):\n${rules}`);
+          } else {
+            addSystemMessage('未找到项目规则。在项目根目录创建 .cco/rules.md 来设置。');
+          }
           break;
         }
 
@@ -323,21 +359,21 @@ export function useCommands(deps: CommandDeps) {
           const cfg = configManager.get();
           const provider = configManager.getActiveProvider();
           const text = `
-Active Provider: ${cfg.activeProvider}
+活跃提供商: ${cfg.activeProvider}
 Base URL: ${provider.baseURL}
-Model: ${provider.defaultModel}
-Max Tokens: ${cfg.defaultMaxTokens}
-Agents: ${agentManager.agents.size}
-Debug: ${cfg.debug}
+模型: ${provider.defaultModel}
+最大 Token: ${cfg.defaultMaxTokens}
+Agent 数量: ${agentManager.agents.size}
+调试模式: ${cfg.debug}
 Computer Use: ${cfg.computerUse.enabled}
-MCP Servers: ${Object.keys(cfg.mcpServers).join(', ') || 'none'}
+MCP 服务器: ${Object.keys(cfg.mcpServers).join(', ') || '无'}
           `.trim();
           addSystemMessage(text);
           break;
         }
 
         default:
-          addSystemMessage(`Unknown command: /${cmd}. Type /help for available commands.`);
+          addSystemMessage(`未知命令: /${cmd}，输入 /help 查看可用命令。`);
       }
     },
     [activeAgentId, exit, setShowHelp, setShowAgents, setShowTaskPanel, setIsProcessing, setActiveAgentId, addSystemMessage, deps],

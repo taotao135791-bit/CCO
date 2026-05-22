@@ -59,7 +59,7 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'Edit',
-      description: 'Make targeted edits to a file by replacing specific text.',
+      description: 'Make targeted edits to a file by replacing specific text. Returns a unified diff preview.',
       parameters: {
         type: 'object',
         properties: {
@@ -68,6 +68,32 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
           new_string: { type: 'string', description: 'The replacement text' },
         },
         required: ['file_path', 'old_string', 'new_string'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'MultiEdit',
+      description: 'Make multiple targeted replacements in a single file in one call. More efficient than calling Edit multiple times. Returns a unified diff of all changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Absolute or relative path to the file' },
+          edits: {
+            type: 'array',
+            description: 'Array of edit operations',
+            items: {
+              type: 'object',
+              properties: {
+                old_string: { type: 'string', description: 'The exact text to replace' },
+                new_string: { type: 'string', description: 'The replacement text' },
+              },
+              required: ['old_string', 'new_string'],
+            },
+          },
+        },
+        required: ['file_path', 'edits'],
       },
     },
   },

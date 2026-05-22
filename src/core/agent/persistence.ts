@@ -80,6 +80,26 @@ export class SessionPersistence {
       parentAgent,
     });
   }
+
+  /**
+   * Create a session branch from a specific message index.
+   * Returns the truncated message array or null on failure.
+   */
+  createBranch(branchName: string, messages: AgentMessage[], fromIndex: number): AgentMessage[] | null {
+    if (!messages || messages.length === 0) return null;
+    const safeIndex = Math.max(1, Math.min(fromIndex, messages.length)); // keep at least system msg
+    const branchedMessages = messages.slice(0, safeIndex);
+    const branchId = `branch_${branchName}_${Date.now()}`;
+    this.saveSession({
+      id: branchId,
+      name: branchName,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: branchedMessages,
+      agentId: branchId,
+    });
+    return branchedMessages;
+  }
 }
 
 export const sessionPersistence = new SessionPersistence();

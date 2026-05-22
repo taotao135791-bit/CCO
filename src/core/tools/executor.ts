@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'fs';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import { globby } from 'globby';
 import { dirname, relative, resolve, isAbsolute, join } from 'path';
@@ -65,6 +65,156 @@ function sanitizeEnv(env: NodeJS.ProcessEnv): Record<string, string> {
   return result;
 }
 
+// ── Helper: generate unified diff ──────────────────────────────────────────
+function generateDiff(oldContent: string, newContent: string, filePath: string): string {
+  const oldLines = oldContent.split('\n');
+  const newLines = newContent.split('\n');
+  const relPath = relative(cwd(), filePath) || filePath;
+  const output: string[] = [`--- a/${relPath}`, `+++ b/${relPath}`];
+  // Simple line-by-line diff with context
+  const maxLines = Math.max(oldLines.length, newLines.length);
+  let inHunk = false;
+  let hunkStart = -1;
+  let hunkOldStart = 0;
+  let hunkNewStart = 0;
+  let hunkLines: string[] = [];
+  let oldCount = 0;
+  let newCount = 0;
+  const contextSize = 3;
+
+  function flushHunk() {
+    if (hunkLines.length === 0) return;
+    output.push(`@@ -${hunkOldStart + 1},${oldCount} +${hunkNewStart + 1},${newCount} @@`);
+    output.push(...hunkLines);
+    hunkLines = [];
+    inHunk = false;
+    oldCount = 0;
+    newCount = 0;
+  }
+
+  let lastChangeLine = -contextSize - 1;
+  for (let i = 0; i < maxLines; i++) {
+    const oldLine = i < oldLines.length ? oldLines[i] : undefined;
+    const newLine = i < newLines.length ? newLines[i] : undefined;
+    const changed = oldLine !== newLine;
+
+    if (changed) {
+      if (!inHunk) {
+        inHunk = true;
+        hunkStart = Math.max(0, i - contextSize);
+        hunkOldStart = hunkStart;
+        hunkNewStart = hunkStart;
+        // Add leading context
+        for (let c = hunkStart; c < i; c++) {
+          if (c < oldLines.length) {
+            hunkLines.push(` ${oldLines[c]}`);
+            oldCount++;
+            newCount++;
+          }
+        }
+      }
+      if (oldLine !== undefined && newLine !== undefined) {
+        hunkLines.push(`-${oldLine}`);
+        hunkLines.push(`+${newLine}`);
+        oldCount++;
+        newCount++;
+      } else if (oldLine !== undefined) {
+        hunkLines.push(`-${oldLine}`);
+        oldCount++;
+      } else if (newLine !== undefined) {
+        hunkLines.push(`+${newLine}`);
+        newCount++;
+      }
+      lastChangeLine = i;
+    } else if (inHunk) {
+      if (i - lastChangeLine <= contextSize) {
+        hunkLines.push(` ${oldLine}`);
+        oldCount++;
+        newCount++;
+      } else {
+        flushHunk();
+      }
+    }
+  }
+  flushHunk();
+  return output.length > 2 ? output.join('\n') : '(no changes)';
+}
+
+// ── Helper: try system-level grep (rg or grep) ────────────────────────────
+async function trySystemGrep(
+  pattern: string,
+  searchPath: string,
+  include: string | undefined,
+  contextLines: number,
+  caseInsensitive: boolean | undefined,
+): Promise<ToolResult | null> {
+  // Try ripgrep first
+  try {
+    execSync('rg --version', { stdio: 'ignore' });
+    const rgArgs = [
+      'rg',
+      '--no-heading',
+      '--line-number',
+      '-C', String(contextLines),
+      '--max-count', '50',
+    ];
+    if (caseInsensitive) rgArgs.push('-i');
+    if (include) rgArgs.push('--glob', include);
+    rgArgs.push('--', JSON.stringify(pattern), JSON.stringify(searchPath));
+    const cmd = rgArgs.join(' ');
+    const { stdout } = await execAsync(cmd, {
+      timeout: 30000,
+      cwd: cwd(),
+      env: { ...sanitizeEnv(process.env), FORCE_COLOR: '0', NO_COLOR: '1' },
+    });
+    if (stdout.trim()) {
+      return { content: truncateOutput(stdout.trim(), 300) };
+    }
+    return { content: `No matches found for pattern: ${pattern}` };
+  } catch (e: any) {
+    // rg not available or failed — try grep if it's not an rg error
+    if (e.message?.includes('command not found') || e.code === 'ENOENT' || e.stderr?.includes('No such file')) {
+      // fall through to grep
+    } else if (e.stdout === '' || e.stdout === undefined) {
+      return { content: `No matches found for pattern: ${pattern}` };
+    } else if (e.stdout) {
+      return { content: truncateOutput(e.stdout.trim(), 300) };
+    }
+  }
+
+  // Try system grep
+  try {
+    execSync('grep --version', { stdio: 'ignore' });
+    const grepArgs = [
+      'grep',
+      '-rn',
+      '-C', String(contextLines),
+      '--max-count=50',
+    ];
+    if (caseInsensitive) grepArgs.push('-i');
+    if (include) grepArgs.push(`--include=${include}`);
+    grepArgs.push('-E', '--', JSON.stringify(pattern), JSON.stringify(searchPath));
+    const cmd = grepArgs.join(' ');
+    const { stdout } = await execAsync(cmd, {
+      timeout: 30000,
+      cwd: cwd(),
+      env: { ...sanitizeEnv(process.env), FORCE_COLOR: '0', NO_COLOR: '1' },
+    });
+    if (stdout.trim()) {
+      return { content: truncateOutput(stdout.trim(), 300) };
+    }
+    return { content: `No matches found for pattern: ${pattern}` };
+  } catch (e: any) {
+    if (e.message?.includes('command not found') || e.code === 'ENOENT') {
+      return null; // fall through to JS
+    }
+    if (e.stdout) {
+      return { content: truncateOutput(e.stdout.trim(), 300) };
+    }
+    return null; // JS fallback
+  }
+}
+
 export async function executeTool(name: string, args: Record<string, any>): Promise<ToolResult> {
   try {
     switch (name) {
@@ -108,9 +258,50 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
             isError: true,
           };
         }
+        const oldContent = content;
         content = content.replace(args.old_string, args.new_string);
         writeFileSync(path, content, 'utf-8');
-        return { content: `Successfully edited ${path}` };
+        // Generate unified diff preview
+        const diff = generateDiff(oldContent, content, path);
+        return { content: `Successfully edited ${path}\n\n${diff}` };
+      }
+
+      case 'MultiEdit': {
+        const path = resolvePath(args.file_path);
+        const guard = ensureWritablePath(path);
+        if (guard) return guard;
+        if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
+        let content = readFileSync(path, 'utf-8');
+        const oldContent = content;
+        const edits: Array<{ old_string: string; new_string: string }> = args.edits || [];
+        if (!Array.isArray(edits) || edits.length === 0) {
+          return { content: 'Error: edits must be a non-empty array of {old_string, new_string}', isError: true };
+        }
+        const applied: number[] = [];
+        const failed: string[] = [];
+        for (let i = 0; i < edits.length; i++) {
+          const { old_string, new_string } = edits[i];
+          if (!old_string || new_string === undefined) {
+            failed.push(`Edit #${i + 1}: missing old_string or new_string`);
+            continue;
+          }
+          if (!content.includes(old_string)) {
+            failed.push(`Edit #${i + 1}: text not found`);
+            continue;
+          }
+          const occ = content.split(old_string).length - 1;
+          if (occ > 1) {
+            failed.push(`Edit #${i + 1}: ${occ} matches (ambiguous)`);
+            continue;
+          }
+          content = content.replace(old_string, new_string);
+          applied.push(i + 1);
+        }
+        writeFileSync(path, content, 'utf-8');
+        const diff = generateDiff(oldContent, content, path);
+        const summary = `Applied ${applied.length}/${edits.length} edits to ${path}`;
+        const failInfo = failed.length > 0 ? `\nFailed:\n${failed.join('\n')}` : '';
+        return { content: `${summary}${failInfo}\n\n${diff}` };
       }
 
       case 'Bash': {
@@ -231,6 +422,14 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         if (!existsSync(searchPath)) return { content: `Error: Path not found: ${searchPath}`, isError: true };
 
         const contextLines = args.context_lines ?? 2;
+
+        // Try system-level search first (rg > grep > JS fallback)
+        const systemResult = await trySystemGrep(args.pattern, searchPath, args.include, contextLines, args.case_insensitive);
+        if (systemResult !== null) {
+          return systemResult;
+        }
+
+        // JS fallback
         const flags = args.case_insensitive ? 'gi' : 'g';
         let regex: RegExp;
         try {
@@ -239,7 +438,6 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
           return { content: `Error: Invalid regex pattern: ${e.message}`, isError: true };
         }
 
-        // Collect files to search
         let files: string[];
         if (statSync(searchPath).isFile()) {
           files = [searchPath];
@@ -261,7 +459,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
           if (totalMatches >= maxResults) break;
           try {
             const stat = statSync(file);
-            if (stat.size > 1024 * 1024) continue; // skip files > 1MB
+            if (stat.size > 1024 * 1024) continue;
             const content = readFileSync(file, 'utf-8');
             const lines = content.split('\n');
 

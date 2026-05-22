@@ -79,7 +79,7 @@ export const App: React.FC = () => {
     activeAgentId, setActiveAgentId, agents, plans,
     showTaskPanel, setShowTaskPanel,
     pendingPermission, decidePermission,
-    handleSubmit, addSystemMessage,
+    handleSubmit, addSystemMessage, tokenCounts,
   } = useAgentManager();
 
   /* UI toggles */
@@ -155,7 +155,7 @@ export const App: React.FC = () => {
       if (isProcessing) {
         agentManager.getActiveAgent().abort();
         setIsProcessing(false);
-        addSystemMessage('Agent execution interrupted.');
+        addSystemMessage('Agent 执行已中断。');
         return;
       }
       exit();
@@ -166,7 +166,7 @@ export const App: React.FC = () => {
       if (isProcessing) {
         agentManager.getActiveAgent().abort();
         setIsProcessing(false);
-        addSystemMessage('Agent execution interrupted. Press Ctrl+C again to exit.');
+        addSystemMessage('Agent 执行已中断。再按一次 Ctrl+C 退出。');
       } else {
         exit();
       }
@@ -209,42 +209,45 @@ export const App: React.FC = () => {
           isProcessing={isProcessing}
           messageCount={messages.length}
           scrollOffset={effectiveScrollOffset}
+          inputTokens={tokenCounts.input}
+          outputTokens={tokenCounts.output}
         />
       </Box>
 
       {/* Help overlay */}
       {showHelp && (
         <Box flexDirection="column" paddingX={1}>
-          <Text bold color="cyan">Commands:</Text>
-          <Text color="gray">/help, /h          Show this help</Text>
-          <Text color="gray">/quit, /q, /exit   Exit</Text>
-          <Text color="gray">/clear             Clear chat</Text>
-          <Text color="gray">/agents, /a, Tab   Toggle agent panel</Text>
-          <Text color="gray">/agent &lt;id&gt;        Switch to agent</Text>
-          <Text color="gray">/new [name]        Create new agent</Text>
-          <Text color="gray">/role [key] [name] Create agent with role</Text>
-          <Text color="gray">/kill &lt;id&gt;         Remove agent</Text>
-          <Text color="gray">/msg &lt;id&gt; &lt;text&gt;  Send message to agent</Text>
-          <Text color="gray">/broadcast &lt;text&gt;  Broadcast to all</Text>
-          <Text color="gray">/delegate &lt;task&gt;   Parallel task delegation</Text>
-          <Text color="gray">/tasks             Toggle task panel</Text>
-          <Text color="gray">/save              Save current session</Text>
-          <Text color="gray">/load &lt;id&gt;         Load saved session</Text>
-          <Text color="gray">/sessions          List saved sessions</Text>
-          <Text color="gray">/model &lt;name&gt;      Switch model</Text>
-          <Text color="gray">/provider &lt;name&gt;   Switch provider</Text>
-          <Text color="gray">/skill [name]      List or activate skill</Text>
-          <Text color="gray">/review [path]     Auto code review</Text>
-          <Text color="gray">/pair &lt;task&gt;       Pair programming</Text>
-          <Text color="gray">/swarm &lt;pat&gt; &lt;inst&gt; Multi-file processing</Text>
-          <Text color="gray">/index             Build code index</Text>
-          <Text color="gray">/search &lt;query&gt;    Search indexed code</Text>
-          <Text color="gray">/mcp list          List MCP servers</Text>
-          <Text color="gray">/mcp connect &lt;n&gt;   Connect MCP server</Text>
-          <Text color="gray">/config            Show config</Text>
-          <Text color="gray">PageUp/PageDown    Scroll chat history</Text>
-          <Text color="gray">Shift+↑↓           Scroll chat history</Text>
-          <Text color="gray">Alt+1-9            Quick switch agent</Text>
+          <Text bold color="cyan">命令列表:</Text>
+          <Text color="gray">/help, /h          显示此帮助</Text>
+          <Text color="gray">/quit, /q, /exit   退出程序</Text>
+          <Text color="gray">/clear             清空聊天记录</Text>
+          <Text color="gray">/agents, /a, Tab   切换 Agent 面板</Text>
+          <Text color="gray">/agent &lt;id&gt;        切换到指定 Agent</Text>
+          <Text color="gray">/new [name]        创建新 Agent</Text>
+          <Text color="gray">/role [key] [name] 创建带角色的 Agent</Text>
+          <Text color="gray">/kill &lt;id&gt;         移除 Agent</Text>
+          <Text color="gray">/msg &lt;id&gt; &lt;text&gt;  向 Agent 发送消息</Text>
+          <Text color="gray">/broadcast &lt;text&gt;  广播给所有 Agent</Text>
+          <Text color="gray">/delegate &lt;task&gt;   并行任务委派</Text>
+          <Text color="gray">/tasks             切换任务面板</Text>
+          <Text color="gray">/save              保存当前会话</Text>
+          <Text color="gray">/load &lt;id&gt;         加载已保存会话</Text>
+          <Text color="gray">/sessions          列出已保存会话</Text>
+          <Text color="gray">/branch [name]     从当前位置创建会话分支</Text>
+          <Text color="gray">/model &lt;name&gt;      切换模型</Text>
+          <Text color="gray">/provider &lt;name&gt;   切换提供商</Text>
+          <Text color="gray">/skill [name]      列出或激活技能</Text>
+          <Text color="gray">/review [path]     自动代码审查</Text>
+          <Text color="gray">/pair &lt;task&gt;       结对编程</Text>
+          <Text color="gray">/swarm &lt;pat&gt; &lt;inst&gt; 多文件处理</Text>
+          <Text color="gray">/index             构建代码索引</Text>
+          <Text color="gray">/search &lt;query&gt;    搜索索引代码</Text>
+          <Text color="gray">/mcp list          列出 MCP 服务器</Text>
+          <Text color="gray">/mcp connect &lt;n&gt;   连接 MCP 服务器</Text>
+          <Text color="gray">/config            显示配置信息</Text>
+          <Text color="gray">PageUp/PageDown    滚动聊天历史</Text>
+          <Text color="gray">Shift+↑↓           滚动聊天历史</Text>
+          <Text color="gray">Alt+1-9            快速切换 Agent</Text>
         </Box>
       )}
 
@@ -267,7 +270,7 @@ export const App: React.FC = () => {
               ))}
               {effectiveScrollOffset > 0 && (
                 <Text color="gray" dimColor wrap="truncate-end">
-                  ↑ viewing older history · scroll down to return
+                  ↑ 查看更早的历史记录 · 向下滚动返回
                 </Text>
               )}
             </Box>
@@ -288,21 +291,21 @@ export const App: React.FC = () => {
 
           {pendingPermission && (
             <Box flexDirection="column" flexShrink={0} paddingX={1} paddingY={1}>
-              <Text bold color="yellow">Permission required</Text>
+              <Text bold color="yellow">需要权限确认</Text>
               <Text>
                 <Text color="cyan">{pendingPermission.request.agentName}</Text>
-                {' wants to run '}
+                {' 想要执行 '}
                 <Text bold>{pendingPermission.request.toolName}</Text>
               </Text>
               {pendingPermission.request.rule && (
-                <Text color="gray">Matched rule: {pendingPermission.request.rule}</Text>
+                <Text color="gray">匹配规则: {pendingPermission.request.rule}</Text>
               )}
               <Text color="gray">{JSON.stringify(pendingPermission.request.args)}</Text>
               <Text>
-                <Text color="green">y</Text><Text> allow once  </Text>
-                <Text color="green">a</Text><Text> allow this exact action for session  </Text>
-                <Text color="green">p</Text><Text> always allow  </Text>
-                <Text color="red">n</Text><Text> deny</Text>
+                <Text color="green">y</Text><Text> 允许一次  </Text>
+                <Text color="green">a</Text><Text> 本次会话始终允许  </Text>
+                <Text color="green">p</Text><Text> 永久允许  </Text>
+                <Text color="red">n</Text><Text> 拒绝</Text>
               </Text>
             </Box>
           )}
@@ -313,7 +316,7 @@ export const App: React.FC = () => {
               onSubmit={handleSubmit}
               onCommand={handleCommand}
               disabled={isProcessing}
-              disabledText={pendingPermission ? 'Waiting for permission...' : 'Thinking...'}
+              disabledText={pendingPermission ? '等待权限确认...' : '思考中...'}
               mouseEventNonce={mouseEventNonce}
             />
           </Box>

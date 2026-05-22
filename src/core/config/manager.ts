@@ -313,6 +313,68 @@ export class ConfigManager {
     writeFileSync(this.projectConfigPath, JSON.stringify(this.projectConfig, null, 2));
   }
 
+  /**
+   * Add an allow rule to the project-level `.cco.json` config.
+   * Creates the file and permissions object if they don't exist.
+   */
+  addProjectAllowRule(rule: string): void {
+    if (!this.projectConfig) {
+      this.projectConfig = { permissions: { allow: [], deny: [], ask: [] } };
+    }
+    if (!this.projectConfig.permissions) {
+      this.projectConfig.permissions = { allow: [], deny: [], ask: [] };
+    }
+    if (!this.projectConfig.permissions.allow) {
+      this.projectConfig.permissions.allow = [];
+    }
+    if (!this.projectConfig.permissions.allow.includes(rule)) {
+      this.projectConfig.permissions.allow.push(rule);
+    }
+    // If we have a path, save. Otherwise we need to create one.
+    if (this.projectConfigPath) {
+      this.saveProjectConfig();
+    } else {
+      // Create .cco.json in cwd
+      const configPath = join(resolve(process.cwd()), '.cco.json');
+      this.projectConfigPath = configPath;
+      writeFileSync(configPath, JSON.stringify(this.projectConfig, null, 2));
+    }
+    // Also add to global allow for immediate effect
+    this.addAllowRule(rule);
+  }
+
+  /**
+   * Load project rules from `.cco/rules.md` in the given directory.
+   * Returns the rules content string, or null if not found.
+   */
+  private projectRules: string | null = null;
+  private projectRulesPath: string | null = null;
+
+  loadProjectRules(projectRoot: string): string | null {
+    const rulesPath = join(resolve(projectRoot), '.cco', 'rules.md');
+    if (!existsSync(rulesPath)) {
+      this.projectRules = null;
+      this.projectRulesPath = null;
+      return null;
+    }
+    try {
+      this.projectRules = readFileSync(rulesPath, 'utf-8');
+      this.projectRulesPath = rulesPath;
+      return this.projectRules;
+    } catch {
+      this.projectRules = null;
+      return null;
+    }
+  }
+
+  getProjectRules(): string | null {
+    return this.projectRules;
+  }
+
+  getProjectRulesPath(): string | null {
+    return this.projectRulesPath;
+  }
+
   getConfigDir(): string {
     return CONFIG_DIR;
   }

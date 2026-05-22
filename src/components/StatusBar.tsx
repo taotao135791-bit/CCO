@@ -9,6 +9,8 @@ interface Props {
   isProcessing?: boolean;
   messageCount?: number;
   scrollOffset?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export const StatusBar: React.FC<Props> = ({
@@ -18,6 +20,8 @@ export const StatusBar: React.FC<Props> = ({
   isProcessing,
   messageCount,
   scrollOffset,
+  inputTokens,
+  outputTokens,
 }) => {
   const provider = configManager.get().activeProvider;
   const { stdout } = useStdout();
@@ -46,6 +50,12 @@ export const StatusBar: React.FC<Props> = ({
             <>
               <Text color="gray">·</Text>
               <Text color="magenta">↑{scrollOffset}</Text>
+            </>
+          ) : null}
+          {(inputTokens || outputTokens) ? (
+            <>
+              <Text color="gray">·</Text>
+              <Text color="cyan">{(inputTokens || 0) > 1000 ? `${((inputTokens || 0) / 1000).toFixed(1)}k` : inputTokens || 0}↑ {(outputTokens || 0) > 1000 ? `${((outputTokens || 0) / 1000).toFixed(1)}k` : outputTokens || 0}↓</Text>
             </>
           ) : null}
         </Box>

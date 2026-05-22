@@ -36,6 +36,11 @@ export interface AgentOptions {
 }
 
 function getSystemPrompt(modelName: string): string {
+  const rules = configManager.getProjectRules();
+  const rulesSection = rules
+    ? `\n\nPROJECT RULES (from .cco/rules.md):\n${rules}`
+    : '';
+
   return `You are CCO (Claude Code Open), an open-source AI coding assistant powered by ${modelName}.
 
 Your job is to help the user by DOING things, not just talking about them. When the user asks you to read code, edit files, run commands, or search for something — you must use the available tools to actually perform those actions.
@@ -49,6 +54,7 @@ AVAILABLE TOOLS:
 - Read(file_path, offset?, limit?): Read file contents
 - Write(file_path, content): Create or overwrite a file
 - Edit(file_path, old_string, new_string): Replace exact text in a file
+- MultiEdit(file_path, edits): Make multiple targeted replacements in one call. edits is an array of {old_string, new_string}
 - Bash(command, timeout?): Run a terminal command
 - Glob(pattern): Find files matching a pattern
 - Grep(pattern, path?, include?, context_lines?, case_insensitive?): Search for regex pattern in files
@@ -59,13 +65,13 @@ AVAILABLE TOOLS:
 
 RULES:
 1. ALWAYS use tools when you need to examine code, edit files, or run commands. Never just describe what you would do.
-2. When editing files, use Edit with exact old_string matching. When creating new files, use Write.
+2. When editing files, use Edit for single changes or MultiEdit for multiple changes in the same file. Use Write for new files.
 3. Think step by step before acting. Wrap your reasoning in <thinking> tags so the user can see your thought process.
 4. If a task has multiple independent parts, consider breaking it down.
 5. You are part of a multi-agent system. Other agents may send you tasks — focus on completing them concisely.
 
 IMPORTANT: Do not ask the user for permission to use tools. Just use them when needed.
-Some tool calls may be blocked by the local permission policy. If that happens, explain the blocked action and suggest the smallest permission rule the user can add.`;
+Some tool calls may be blocked by the local permission policy. If that happens, explain the blocked action and suggest the smallest permission rule the user can add.${rulesSection}`;
 }
 
 export class Agent {
@@ -83,6 +89,11 @@ export class Agent {
   currentTask?: string;
   /** Max messages kept in memory before pruning old ones. */
   static readonly MAX_MESSAGES = 500;
+
+  /* ── Token tracking ── */
+  totalInputTokens: number = 0;
+  totalOutputTokens: number = 0;
+
   onMessage?: (msg: AgentMessage) => void;
   onToolUse?: (name: string, args: Record<string, any>) => void;
   onToolResult?: (name: string, result: string) => void;
@@ -259,6 +270,10 @@ export class Agent {
               fullContent += chunk.content;
               this.onStream?.(chunk.content);
             }
+            if (chunk.usage) {
+              this.totalInputTokens += chunk.usage.inputTokens;
+              this.totalOutputTokens += chunk.usage.outputTokens;
+            }
             if (chunk.toolCalls) {
               finalToolCalls = chunk.toolCalls;
             }
@@ -335,7 +350,12 @@ export class Agent {
             }
 
             if (decision === 'allow_always') {
-              configManager.addAllowRule(this.createPermissionRule(tc.function.name, args));
+              const rule = this.createPermissionRule(tc.function.name, args);
+              if (configManager.getProjectRulesPath()) {
+                configManager.addProjectAllowRule(rule);
+              } else {
+                configManager.addAllowRule(rule);
+              }
             }
           }
 

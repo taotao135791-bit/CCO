@@ -7,35 +7,38 @@ interface CommandItem {
 }
 
 const COMMANDS: CommandItem[] = [
-  { cmd: '/help', desc: 'Show help' },
-  { cmd: '/quit', desc: 'Exit' },
-  { cmd: '/clear', desc: 'Clear chat' },
-  { cmd: '/new', desc: 'Create new agent' },
-  { cmd: '/role', desc: 'Create agent with role' },
-  { cmd: '/kill', desc: 'Remove agent' },
-  { cmd: '/agent', desc: 'Switch to agent' },
-  { cmd: '/agents', desc: 'Toggle agent panel' },
-  { cmd: '/msg', desc: 'Message an agent' },
-  { cmd: '/broadcast', desc: 'Broadcast to all' },
-  { cmd: '/delegate', desc: 'Parallel task delegation' },
-  { cmd: '/review', desc: 'Auto code review' },
-  { cmd: '/pair', desc: 'Pair programming' },
-  { cmd: '/swarm', desc: 'Multi-file processing' },
-  { cmd: '/tasks', desc: 'Toggle task panel' },
-  { cmd: '/save', desc: 'Save session' },
-  { cmd: '/load', desc: 'Load session' },
-  { cmd: '/sessions', desc: 'List sessions' },
-  { cmd: '/skill', desc: 'Skills system' },
-  { cmd: '/index', desc: 'Build code index' },
-  { cmd: '/search', desc: 'Search code' },
-  { cmd: '/mcp', desc: 'MCP servers' },
-  { cmd: '/model', desc: 'Switch model' },
-  { cmd: '/provider', desc: 'Switch provider' },
-  { cmd: '/config', desc: 'Show config' },
+  { cmd: '/help', desc: '显示帮助' },
+  { cmd: '/quit', desc: '退出程序' },
+  { cmd: '/clear', desc: '清空聊天' },
+  { cmd: '/new', desc: '创建新 Agent' },
+  { cmd: '/role', desc: '创建带角色 Agent' },
+  { cmd: '/kill', desc: '移除 Agent' },
+  { cmd: '/agent', desc: '切换 Agent' },
+  { cmd: '/agents', desc: '切换面板' },
+  { cmd: '/msg', desc: '发送消息' },
+  { cmd: '/broadcast', desc: '广播消息' },
+  { cmd: '/delegate', desc: '并行任务' },
+  { cmd: '/review', desc: '代码审查' },
+  { cmd: '/pair', desc: '结对编程' },
+  { cmd: '/swarm', desc: '多文件处理' },
+  { cmd: '/tasks', desc: '任务面板' },
+  { cmd: '/save', desc: '保存会话' },
+  { cmd: '/load', desc: '加载会话' },
+  { cmd: '/sessions', desc: '列出会话' },
+  { cmd: '/branch', desc: '会话分支' },
+  { cmd: '/cost', desc: '查看费用' },
+  { cmd: '/rules', desc: '查看规则' },
+  { cmd: '/skill', desc: '技能系统' },
+  { cmd: '/index', desc: '构建索引' },
+  { cmd: '/search', desc: '搜索代码' },
+  { cmd: '/mcp', desc: 'MCP 服务器' },
+  { cmd: '/model', desc: '切换模型' },
+  { cmd: '/provider', desc: '切换提供商' },
+  { cmd: '/config', desc: '显示配置' },
 ];
 
 const NO_ARG_COMMANDS = new Set([
-  '/help', '/quit', '/clear', '/agents', '/tasks', '/save', '/sessions', '/config',
+  '/help', '/quit', '/clear', '/agents', '/tasks', '/save', '/sessions', '/config', '/cost', '/rules',
 ]);
 
 const MENU_HEIGHT = 12;
@@ -76,7 +79,7 @@ export const InputBox: React.FC<Props> = ({
   disabled,
   disabledText = 'Thinking...',
   mouseEventNonce,
-  placeholder = 'Ask anything, or type / for commands',
+  placeholder = '输入任何问题，或输入 / 查看命令',
 }) => {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);

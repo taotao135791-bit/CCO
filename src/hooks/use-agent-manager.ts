@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { agentManager } from '../core/agent/manager.js';
+import { configManager } from '../core/config/manager.js';
 import { autoParallel } from '../core/agent/auto-parallel.js';
 import type { AgentMessage, PermissionDecision, PermissionRequest } from '../core/agent/engine.js';
 import type { AgentInfo } from '../core/agent/manager.js';
@@ -30,6 +31,7 @@ export function useAgentManager() {
   const [plans, setPlans] = useState<Array<{ planId: string; plan: TaskPlan }>>([]);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
+  const [tokenCounts, setTokenCounts] = useState({ input: 0, output: 0 });
   const idCounterRef = useRef(0);
 
   const nextId = (prefix?: string) => {
@@ -51,6 +53,10 @@ export function useAgentManager() {
 
   // Ensure main agent exists and wire callbacks
   useEffect(() => {
+    // Load project-level config and rules from cwd
+    configManager.loadProjectConfig(process.cwd());
+    configManager.loadProjectRules(process.cwd());
+
     if (!agentManager.getAgent('main')) {
       agentManager.createAgent({ id: 'main', name: 'Main' });
     }
@@ -150,6 +156,11 @@ export function useAgentManager() {
 
     agentManager.onAgentDone = () => {
       setIsProcessing(false);
+      // Update token counts from active agent
+      const agent = agentManager.getActiveAgent();
+      if (agent) {
+        setTokenCounts({ input: agent.totalInputTokens, output: agent.totalOutputTokens });
+      }
       if (streamThrottleRef.current) {
         clearTimeout(streamThrottleRef.current);
         streamThrottleRef.current = null;
@@ -211,7 +222,7 @@ export function useAgentManager() {
     try {
       await agent.sendUserMessage(value);
     } catch (err: any) {
-      addSystemMessage(`Error: ${err.message || String(err)}`);
+      addSystemMessage(`错误: ${err.message || String(err)}`);
     } finally {
       setIsProcessing(false);
     }
@@ -222,6 +233,6 @@ export function useAgentManager() {
     activeAgentId, setActiveAgentId, agents, plans,
     showTaskPanel, setShowTaskPanel,
     pendingPermission, decidePermission,
-    handleSubmit, addSystemMessage,
+    handleSubmit, addSystemMessage, tokenCounts,
   };
 }

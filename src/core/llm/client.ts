@@ -57,6 +57,7 @@ export interface LLMStreamChunk {
   toolCalls?: ToolCall[];
   finishReason?: string;
   reasoningContent?: string;
+  usage?: { inputTokens: number; outputTokens: number };
 }
 
 // Convert OpenAI-format tools to Anthropic format
@@ -458,11 +459,11 @@ export class LLMClient {
             currentToolCall = null;
           }
         } else if (chunk.type === 'message_stop') {
+          const result: LLMStreamChunk = { content: '', finishReason: 'stop' };
           if (toolCalls.length > 0) {
-            yield { content: '', toolCalls, finishReason: 'stop' };
-          } else {
-            yield { content: '', finishReason: 'stop' };
+            result.toolCalls = toolCalls;
           }
+          yield result;
         }
       }
     } catch (err: any) {
