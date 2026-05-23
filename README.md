@@ -31,8 +31,8 @@
 ## 安装
 
 ```bash
-git clone <repo>
-cd claude-code-open
+git clone https://github.com/taotao135791-bit/CCO.git
+cd CCO
 npm install
 npm run build
 npm link  # 或 npm install -g .
@@ -46,16 +46,16 @@ npm link  # 或 npm install -g .
 
 ```bash
 # 首次运行会自动引导配置
-co
+cco
 
 # 或命令行直接指定
-co --api-key sk-xxx --provider openrouter
+cco --api-key sk-xxx --provider openrouter
 ```
 
 ### 2. 启动
 
 ```bash
-co
+cco
 ```
 
 ---
