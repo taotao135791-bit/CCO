@@ -10,6 +10,8 @@ import { InputBox } from './components/InputBox.js';
 import { StatusBar } from './components/StatusBar.js';
 import { AgentPanel } from './components/AgentPanel.js';
 import { TaskPanel } from './components/TaskPanel.js';
+import { ProviderSelect } from './components/ProviderSelect.js';
+import { ModelSelect } from './components/ModelSelect.js';
 
 /* ── Mouse input detection (fallback for non-SGR terminals) ──────────────── */
 
@@ -75,6 +77,9 @@ export const App: React.FC = () => {
   const [showHelp, setShowHelp] = React.useState(false);
   const [showAgents, setShowAgents] = React.useState(false);
   const [menuLines, setMenuLines] = React.useState(0);
+  const [showProviderDialog, setShowProviderDialog] = React.useState(false);
+  const [showModelDialog, setShowModelDialog] = React.useState(false);
+  const [dialogRefresh, setDialogRefresh] = React.useState(0);
 
   /* ID helper – stable ref */
   const idCounterRef = React.useRef(0);
@@ -105,6 +110,8 @@ export const App: React.FC = () => {
     setMessages, setShowHelp, setShowAgents, setShowTaskPanel,
     setIsProcessing, setActiveAgentId, activeAgentId,
     addSystemMessage, nextId, exit,
+    openProviderDialog: () => setShowProviderDialog(true),
+    openModelDialog: () => setShowModelDialog(true),
   });
 
   /* Enable SGR mouse mode */
@@ -178,6 +185,42 @@ export const App: React.FC = () => {
   /* ── Render ───────────────────────────────────────────────────────────── */
   return (
     <Box flexDirection="column" height={stdout.rows}>
+      {/* Provider selection dialog */}
+      {showProviderDialog && (
+        <ProviderSelect
+          providers={configManager.get().providers}
+          activeProvider={configManager.get().activeProvider}
+          onSelect={(name) => {
+            configManager.setActiveProvider(name);
+            setShowProviderDialog(false);
+            if (!configManager.hasApiKey(name)) {
+              addSystemMessage(`ℹ  提供商 "${name}" 尚未配置 API Key。请使用 cco --api-key <key> 或编辑 ~/.cco/config.json`);
+            } else {
+              const p = configManager.getActiveProvider();
+              addSystemMessage(`已切换到: ${name} (模型: ${p.defaultModel})`);
+            }
+            setDialogRefresh((v) => v + 1);
+          }}
+          onCancel={() => setShowProviderDialog(false)}
+        />
+      )}
+
+      {/* Model selection dialog */}
+      {showModelDialog && !showProviderDialog && (
+        <ModelSelect
+          provider={configManager.getActiveProvider()}
+          currentModel={configManager.getActiveProvider().defaultModel}
+          onSelect={(model) => {
+            const p = configManager.getActiveProvider();
+            configManager.updateProvider(p.name, { defaultModel: model });
+            setShowModelDialog(false);
+            addSystemMessage(`模型已切换为: ${model}`);
+            setDialogRefresh((v) => v + 1);
+          }}
+          onCancel={() => setShowModelDialog(false)}
+        />
+      )}
+
       {/* Status bar */}
       <Box flexShrink={0}>
         <StatusBar
@@ -214,7 +257,8 @@ export const App: React.FC = () => {
           <Text color="gray">/diff              文件变更汇总      /perf              性能分析</Text>
           <Text color="gray">/template [name]   项目模板          /plugins           插件系统</Text>
           <Text bold color="cyan">—— 系统配置 ——</Text>
-          <Text color="gray">/model &lt;name&gt;      切换模型          /provider &lt;name&gt;   切换提供商</Text>
+          <Text color="gray">/model &lt;name&gt;      切换模型          /models            模型选择器</Text>
+          <Text color="gray">/provider &lt;name&gt;   切换提供商        /connect           提供商选择器</Text>
           <Text color="gray">/cost              查看 Token 和费用  /rules             查看项目规则</Text>
           <Text color="gray">/mcp list/connect  MCP 服务器管理    /config            显示配置信息</Text>
           <Text bold color="cyan">—— 快捷键 ——</Text>

@@ -12,6 +12,7 @@ import { detectProject, projectDescription } from '../core/agent/project-detect.
 import { diffTracker } from '../core/tools/diff-tracker.js';
 import { pluginLoader } from '../core/plugins/loader.js';
 import { listTemplates, applyTemplate } from '../core/tools/template-gen.js';
+import { authStore } from '../core/auth/auth-store.js';
 import type { DisplayMessage } from './use-agent-manager.js';
 
 type SetMessages = React.Dispatch<React.SetStateAction<DisplayMessage[]>>;
@@ -27,6 +28,10 @@ export interface CommandDeps {
   addSystemMessage: (content: string) => void;
   nextId: (prefix?: string) => string;
   exit: () => void;
+  /** Open provider selection dialog */
+  openProviderDialog?: () => void;
+  /** Open model selection dialog */
+  openModelDialog?: () => void;
 }
 
 /**
@@ -37,6 +42,7 @@ export function useCommands(deps: CommandDeps) {
     setShowHelp, setShowAgents, setShowTaskPanel,
     setIsProcessing, setActiveAgentId, activeAgentId,
     addSystemMessage, exit,
+    openProviderDialog, openModelDialog,
   } = deps;
 
   const handleCommand = useCallback(
@@ -154,12 +160,41 @@ export function useCommands(deps: CommandDeps) {
           break;
         }
 
+        case 'connect': {
+          // Open TUI provider selection dialog
+          if (openProviderDialog) {
+            openProviderDialog();
+          } else {
+            addSystemMessage('提供商选择功能不可用。请使用 /provider <名称> 直接切换。');
+          }
+          break;
+        }
+
+        case 'models': {
+          // Open TUI model selection dialog
+          if (openModelDialog) {
+            openModelDialog();
+          } else {
+            addSystemMessage('模型选择功能不可用。请使用 /model <名称> 直接切换。');
+          }
+          break;
+        }
+
         case 'model': {
           const model = args[0];
           if (model) {
             const provider = configManager.getActiveProvider();
             configManager.updateProvider(provider.name, { defaultModel: model });
             addSystemMessage(`模型已切换为: ${model}`);
+          } else {
+            // No argument: open model dialog
+            if (openModelDialog) {
+              openModelDialog();
+            } else {
+              const provider = configManager.getActiveProvider();
+              const modelList = (provider.models || [provider.defaultModel]).join(', ');
+              addSystemMessage(`当前模型: ${provider.defaultModel}\n可用模型: ${modelList}\n用法: /model <名称> 或 /models 打开选择器`);
+            }
           }
           break;
         }
@@ -168,7 +203,20 @@ export function useCommands(deps: CommandDeps) {
           const providerName = args[0];
           if (providerName) {
             configManager.setActiveProvider(providerName);
-            addSystemMessage(`提供商已切换为: ${providerName}`);
+            const p = configManager.getActiveProvider();
+            addSystemMessage(`提供商已切换为: ${providerName} (模型: ${p.defaultModel})`);
+          } else {
+            // No argument: open provider dialog
+            if (openProviderDialog) {
+              openProviderDialog();
+            } else {
+              const cfg = configManager.get();
+              const providerList = cfg.providers.map((p) => {
+                const hasKey = configManager.hasApiKey(p.name);
+                return `  ${hasKey ? '✓' : ' '} ${p.name} (${p.defaultModel})`;
+              }).join('\n');
+              addSystemMessage(`已配置的提供商:\n${providerList}\n用法: /provider <名称> 或 /connect 打开选择器`);
+            }
           }
           break;
         }
@@ -449,10 +497,13 @@ export function useCommands(deps: CommandDeps) {
         case 'config': {
           const cfg = configManager.get();
           const provider = configManager.getActiveProvider();
+          const authProviders = authStore.listProviders();
           const text = `
 活跃提供商: ${cfg.activeProvider}
 Base URL: ${provider.baseURL}
 模型: ${provider.defaultModel}
+API Key: ${authStore.getMaskedKey(cfg.activeProvider) || (provider.apiKey ? '已配置' : '未配置')}
+凭证存储: ${authProviders.length > 0 ? authProviders.join(', ') : '无'}
 最大 Token: ${cfg.defaultMaxTokens}
 Agent 数量: ${agentManager.agents.size}
 调试模式: ${cfg.debug}

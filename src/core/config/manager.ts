@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { join, resolve } from 'path';
+import { authStore } from '../auth/auth-store.js';
 
 export type APIFormat = 'anthropic' | 'openai';
 
@@ -274,6 +275,13 @@ export class ConfigManager {
   getActiveProvider(): ProviderConfig {
     const p = this.config.providers.find((x) => x.name === this.config.activeProvider);
     if (!p) throw new Error(`Provider ${this.config.activeProvider} not found`);
+    // Resolve API key from auth store if not inline
+    if (!p.apiKey) {
+      const storedKey = authStore.getKey(p.name);
+      if (storedKey) {
+        return { ...p, apiKey: storedKey };
+      }
+    }
     return p;
   }
 
@@ -282,12 +290,47 @@ export class ConfigManager {
     this.save();
   }
 
+  /** Set API key for a provider — stores in secure auth store. */
+  setProviderApiKey(name: string, apiKey: string): void {
+    authStore.setKey(name, apiKey);
+    // Also update inline for backward compat
+    const idx = this.config.providers.findIndex((x) => x.name === name);
+    if (idx !== -1) {
+      this.config.providers[idx].apiKey = apiKey;
+      this.save();
+    }
+  }
+
+  /** Check if a provider has an API key (inline or in auth store). */
+  hasApiKey(name: string): boolean {
+    const p = this.config.providers.find((x) => x.name === name);
+    return !!p?.apiKey || authStore.hasKey(name);
+  }
+
   updateProvider(name: string, updates: Partial<ProviderConfig>): void {
     const idx = this.config.providers.findIndex((x) => x.name === name);
     if (idx === -1) {
       this.config.providers.push({ ...DEFAULT_CONFIG.providers[0], name, ...updates });
     } else {
+      // If apiKey is being updated, also store in auth store
+      if (updates.apiKey) {
+        authStore.setKey(name, updates.apiKey);
+      }
       this.config.providers[idx] = { ...this.config.providers[idx], ...updates };
+    }
+    this.save();
+  }
+
+  /** Add a custom provider. */
+  addProvider(config: ProviderConfig): void {
+    const idx = this.config.providers.findIndex((x) => x.name === config.name);
+    if (idx === -1) {
+      this.config.providers.push(config);
+    } else {
+      this.config.providers[idx] = config;
+    }
+    if (config.apiKey) {
+      authStore.setKey(config.name, config.apiKey);
     }
     this.save();
   }

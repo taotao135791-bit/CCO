@@ -4,13 +4,14 @@ import { render } from 'ink';
 import { program } from 'commander';
 import { App } from './app.js';
 import { configManager } from './core/config/manager.js';
+import { authStore } from './core/auth/auth-store.js';
 import { needsSetup, runSetup } from './core/config/setup.js';
 import { installTerminalMouseInput } from './core/terminal/mouse.js';
 
 program
   .name('cco')
   .description('Claude Code Open - Multi-agent AI coding assistant')
-  .version('1.5.0')
+  .version('1.6.0')
   .option('-p, --provider <name>', 'Set active provider')
   .option('-m, --model <name>', 'Set model')
   .option('-k, --api-key <key>', 'Set API key')
@@ -31,6 +32,10 @@ if (options.model || options.apiKey || options.baseUrl) {
     ...(options.apiKey && { apiKey: options.apiKey }),
     ...(options.baseUrl && { baseURL: options.baseUrl }),
   });
+  // Store API key in auth store when provided via CLI
+  if (options.apiKey) {
+    authStore.setKey(provider.name, options.apiKey);
+  }
 }
 if (options.debug) {
   const cfg = configManager.get();
@@ -48,13 +53,15 @@ async function main() {
     await runSetup();
   }
 
-  // Check if API key is set
+  // Check if API key is set (check both inline and auth store)
   const provider = configManager.getActiveProvider();
-  if (!provider.apiKey) {
-    console.error(`\n❌ No API key configured for provider: ${provider.name}`);
-    console.error(`\nSet it with:`);
-    console.error(`  cco --api-key <your-key>`);
-    console.error(`\nOr edit: ${configManager.getConfigDir()}/config.json\n`);
+  if (!provider.apiKey && !authStore.hasKey(provider.name)) {
+    console.error(`\n❌ 提供商 "${provider.name}" 未配置 API Key`);
+    console.error(`\n设置方式：`);
+    console.error(`  cco --api-key <your-key>          命令行设置`);
+    console.error(`  cco --provider <名称>               切换提供商`);
+    console.error(`  编辑: ${configManager.getConfigDir()}/config.json`);
+    console.error(`  或:   ${configManager.getConfigDir()}/auth.json\n`);
     process.exit(1);
   }
 
