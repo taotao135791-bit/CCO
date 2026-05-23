@@ -311,20 +311,26 @@ export const InputBox: React.FC<Props> = ({
 
     if (key.backspace) {
       if (currentCursor > 0) {
-        updateQuery(
-          currentQuery.slice(0, currentCursor - 1) + currentQuery.slice(currentCursor),
-          currentCursor - 1
-        );
+        const newQuery =
+          currentQuery.slice(0, currentCursor - 1) + currentQuery.slice(currentCursor);
+        updateQuery(newQuery, currentCursor - 1);
+        // Update menu state after backspace
+        if (!newQuery.startsWith('/') && !menuClosedRef.current) {
+          closeMenu();
+        }
       }
       return;
     }
 
     if (key.delete) {
       if (currentCursor < currentQuery.length) {
-        updateQuery(
-          currentQuery.slice(0, currentCursor) + currentQuery.slice(currentCursor + 1),
-          currentCursor
-        );
+        const newQuery =
+          currentQuery.slice(0, currentCursor) + currentQuery.slice(currentCursor + 1);
+        updateQuery(newQuery, currentCursor);
+        // Update menu state after delete
+        if (!newQuery.startsWith('/') && !menuClosedRef.current) {
+          closeMenu();
+        }
       }
       return;
     }
@@ -353,13 +359,18 @@ export const InputBox: React.FC<Props> = ({
     updateQuery(nextQuery, currentCursor + cleanedInput.length);
     setHistoryIndex(-1);
 
-    if (nextQuery.startsWith('/') && !currentQuery.startsWith('/')) {
-      setMenuClosed(false);
-      menuClosedRef.current = false;
+    if (nextQuery.startsWith('/')) {
+      // Always open/keep menu when query starts with /
+      if (menuClosedRef.current) {
+        setMenuClosed(false);
+        menuClosedRef.current = false;
+      }
       setMenuIndex(0);
       menuIndexRef.current = 0;
-    } else if (!nextQuery.startsWith('/')) {
-      closeMenu();
+    } else {
+      if (!menuClosedRef.current) {
+        closeMenu();
+      }
     }
   });
 
