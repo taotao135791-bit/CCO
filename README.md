@@ -2,7 +2,7 @@
 
 **开源版 Claude Code。多 Agent、任意 API Key、零学习成本。**
 
-> 专为中文开发者打造。支持 Anthropic / OpenRouter / OpenAI / Gemini / 自定义中转。
+> 专为中文开发者打造。支持 Anthropic / OpenRouter / OpenAI / Gemini / Kimi / DeepSeek / 自定义中转。
 
 ---
 
@@ -11,7 +11,7 @@
 | 特性 | 状态 |
 |------|------|
 | 💬 多轮对话 + 流式输出 | ✅ |
-| 🔧 内置工具（Read/Write/Edit/Bash/Glob/WebSearch/WebFetch） | ✅ |
+| 🔧 内置工具（Read/Write/Edit/MultiEdit/Bash/Grep/Glob/LS/WebSearch/WebFetch/TodoWrite） | ✅ |
 | 🤖 **多 Agent 架构**（并行/协作/通信） | ✅ |
 | 🔌 MCP 客户端（多服务器管理） | ✅ |
 | 🎯 Skills 技能系统 | ✅ |
@@ -22,9 +22,9 @@
 | 🧠 **自适应并行**（自动检测并行机会） | ✅ |
 | 🏗️ **工作流引擎**（Review / Pair / Swarm） | ✅ |
 | 📦 **工作目录隔离**（临时目录 + 合并） | ✅ |
-| ⚡ **Prompt Cache + 代码索引** | ✅ |
-| 💾 会话持久化 | ✅ |
-| 🎭 Agent 角色模板（9种） | ✅ |
+| 💾 **Prompt Cache + 代码索引** | ✅ |
+| 💽 会话持久化 | ✅ |
+| 🎭 Agent 角色模板（10种） | ✅ |
 
 ---
 
@@ -192,6 +192,7 @@ Code Review Report:
 | `architect` | 架构设计 | `/role architect` |
 | `security` | 安全审计 | `/role security` |
 | `performance` | 性能优化 | `/role performance` |
+| `docs` | 技术文档 | `/role docs` |
 | `worker` | 专注执行 | `/role worker` |
 
 ---
@@ -206,6 +207,7 @@ Code Review Report:
   "providers": [
     {
       "name": "openrouter",
+      "format": "openai",
       "baseURL": "https://openrouter.ai/api/v1",
       "apiKey": "sk-or-v1-xxx",
       "defaultModel": "anthropic/claude-sonnet-4-20250514",
