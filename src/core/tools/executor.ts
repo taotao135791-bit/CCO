@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'fs';
-import { exec, execSync } from 'child_process';
+import { exec, execSync, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { globby } from 'globby';
 import { dirname, relative, resolve, isAbsolute, join } from 'path';
@@ -152,9 +152,8 @@ async function trySystemGrep(
 ): Promise<ToolResult | null> {
   // Try ripgrep first
   try {
-    execSync('rg --version', { stdio: 'ignore' });
+    execFileSync('rg', ['--version'], { stdio: 'ignore' });
     const rgArgs = [
-      'rg',
       '--no-heading',
       '--line-number',
       '-C', String(contextLines),
@@ -162,55 +161,61 @@ async function trySystemGrep(
     ];
     if (caseInsensitive) rgArgs.push('-i');
     if (include) rgArgs.push('--glob', include);
-    rgArgs.push('--', JSON.stringify(pattern), JSON.stringify(searchPath));
-    const cmd = rgArgs.join(' ');
-    const { stdout } = await execAsync(cmd, {
+    rgArgs.push('--', pattern, searchPath);
+    const stdout = execFileSync('rg', rgArgs, {
       timeout: 30000,
       cwd: cwd(),
       env: { ...sanitizeEnv(process.env), FORCE_COLOR: '0', NO_COLOR: '1' },
+      encoding: 'utf-8',
     });
     if (stdout.trim()) {
       return { content: truncateOutput(stdout.trim(), 300) };
     }
     return { content: `No matches found for pattern: ${pattern}` };
   } catch (e: any) {
-    // rg not available or failed — try grep if it's not an rg error
-    if (e.message?.includes('command not found') || e.code === 'ENOENT' || e.stderr?.includes('No such file')) {
-      // fall through to grep
-    } else if (e.stdout === '' || e.stdout === undefined) {
+    // rg exit code 1 = no matches found (stdout is empty string from execFileSync)
+    if (e.status === 1 && typeof e.stdout === 'string') {
       return { content: `No matches found for pattern: ${pattern}` };
-    } else if (e.stdout) {
+    }
+    // rg not available
+    if (e.code === 'ENOENT') {
+      // fall through to grep
+    } else if (typeof e.stdout === 'string' && e.stdout.trim()) {
       return { content: truncateOutput(e.stdout.trim(), 300) };
+    } else {
+      // Other rg error, fall through to grep
     }
   }
 
   // Try system grep
   try {
-    execSync('grep --version', { stdio: 'ignore' });
+    execFileSync('grep', ['--version'], { stdio: 'ignore' });
     const grepArgs = [
-      'grep',
       '-rn',
       '-C', String(contextLines),
       '--max-count=50',
     ];
     if (caseInsensitive) grepArgs.push('-i');
     if (include) grepArgs.push(`--include=${include}`);
-    grepArgs.push('-E', '--', JSON.stringify(pattern), JSON.stringify(searchPath));
-    const cmd = grepArgs.join(' ');
-    const { stdout } = await execAsync(cmd, {
+    grepArgs.push('-E', '--', pattern, searchPath);
+    const stdout = execFileSync('grep', grepArgs, {
       timeout: 30000,
       cwd: cwd(),
       env: { ...sanitizeEnv(process.env), FORCE_COLOR: '0', NO_COLOR: '1' },
+      encoding: 'utf-8',
     });
     if (stdout.trim()) {
       return { content: truncateOutput(stdout.trim(), 300) };
     }
     return { content: `No matches found for pattern: ${pattern}` };
   } catch (e: any) {
-    if (e.message?.includes('command not found') || e.code === 'ENOENT') {
-      return null; // fall through to JS
+    if (e.status === 1 && typeof e.stdout === 'string') {
+      return { content: `No matches found for pattern: ${pattern}` };
     }
-    if (e.stdout) {
+    if (e.code === 'ENOENT') {
+      return null; // neither rg nor grep available, fall through to JS
+    }
+    if (typeof e.stdout === 'string' && e.stdout.trim()) {
       return { content: truncateOutput(e.stdout.trim(), 300) };
     }
     return null; // JS fallback

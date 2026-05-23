@@ -245,8 +245,7 @@ export class LLMClient {
         },
       };
     } catch (err: any) {
-      this.handleOpenAIError(err);
-      throw err;
+      throw new Error(this.handleOpenAIError(err));
     }
   }
 
@@ -268,9 +267,9 @@ export class LLMClient {
       })) as OpenAIStream<any>;
     } catch (err: any) {
       debugLog({ type: 'openai-error', error: err.message, errorObj: err.error || null });
-      this.handleOpenAIError(err);
+      const errorMsg = this.handleOpenAIError(err);
       yield { content: '', finishReason: 'error' };
-      throw err;
+      throw new Error(errorMsg);
     }
 
     let currentToolCalls: Map<number, ToolCall> = new Map();
@@ -383,8 +382,7 @@ export class LLMClient {
         },
       };
     } catch (err: any) {
-      this.handleAnthropicError(err);
-      throw err;
+      throw new Error(this.handleAnthropicError(err));
     }
   }
 
@@ -407,9 +405,9 @@ export class LLMClient {
       })) as AnthropicStream<RawMessageStreamEvent>;
     } catch (err: any) {
       debugLog({ type: 'anthropic-error', error: err.message, errorObj: err.error || null });
-      this.handleAnthropicError(err);
+      const errorMsg = this.handleAnthropicError(err);
       yield { content: '', finishReason: 'error' };
-      throw err;
+      throw new Error(errorMsg);
     }
 
     let currentContent = '';
@@ -475,31 +473,31 @@ export class LLMClient {
     }
   }
 
-  private handleOpenAIError(err: any): void {
+  private handleOpenAIError(err: any): string {
     const msg = err.message || String(err);
     const detail = err.error ? JSON.stringify(err.error) : '';
     const fullMsg = detail ? `${msg} | ${detail}` : msg;
-    if (msg.includes('400')) throw new Error(`Bad Request (400): ${fullMsg}`);
-    if (msg.includes('401')) throw new Error('API Key invalid or expired');
-    if (msg.includes('429')) throw new Error('Rate limited. Please wait a moment.');
+    if (msg.includes('400')) return `Bad Request (400): ${fullMsg}`;
+    if (msg.includes('401')) return 'API Key invalid or expired';
+    if (msg.includes('429')) return 'Rate limited. Please wait a moment.';
     if (msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED')) {
-      throw new Error(`Cannot connect to API: ${this.provider.baseURL}. Check your network or baseURL.`);
+      return `Cannot connect to API: ${this.provider.baseURL}. Check your network or baseURL.`;
     }
-    throw new Error(`LLM Error: ${fullMsg}`);
+    return `LLM Error: ${fullMsg}`;
   }
 
-  private handleAnthropicError(err: any): void {
+  private handleAnthropicError(err: any): string {
     const msg = err.message || String(err);
     const detail = err.error ? JSON.stringify(err.error) : '';
     const fullMsg = detail ? `${msg} | ${detail}` : msg;
     if (msg.includes('400') || msg.includes('invalid_request')) {
-      throw new Error(`Bad Request (400): ${fullMsg}`);
+      return `Bad Request (400): ${fullMsg}`;
     }
-    if (msg.includes('401') || msg.includes('authentication')) throw new Error('API Key invalid or expired');
-    if (msg.includes('429') || msg.includes('rate_limit')) throw new Error('Rate limited. Please wait a moment.');
+    if (msg.includes('401') || msg.includes('authentication')) return 'API Key invalid or expired';
+    if (msg.includes('429') || msg.includes('rate_limit')) return 'Rate limited. Please wait a moment.';
     if (msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED')) {
-      throw new Error(`Cannot connect to API: ${this.provider.baseURL}. Check your network or baseURL.`);
+      return `Cannot connect to API: ${this.provider.baseURL}. Check your network or baseURL.`;
     }
-    throw new Error(`LLM Error: ${fullMsg}`);
+    return `LLM Error: ${fullMsg}`;
   }
 }

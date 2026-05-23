@@ -155,15 +155,26 @@ export class Agent {
     const event = this.pendingEvents.shift();
     if (!event) return;
 
-    if (event.type === 'task') {
-      this.currentTask = event.payload.task;
-      await this.sendUserMessage(event.payload.task);
+    try {
+      if (event.type === 'task') {
+        this.currentTask = event.payload.task;
+        await this.sendUserMessage(event.payload.task);
+      }
+    } catch (err: any) {
+      this.onStream?.(`[Error processing event: ${err.message || String(err)}]\n`);
+      this.setStatus('error');
     }
   }
 
   private getAvailableTools() {
     const tools = [...BUILT_IN_TOOLS];
-    tools.push(...mcpManager.getAllTools());
+    const builtInNames = new Set(BUILT_IN_TOOLS.map((t) => t.function.name));
+    // Only add MCP tools that don't conflict with built-in names
+    for (const mcpTool of mcpManager.getAllTools()) {
+      if (!builtInNames.has(mcpTool.function.name)) {
+        tools.push(mcpTool);
+      }
+    }
     if (configManager.get().computerUse.enabled) {
       tools.push(...COMPUTER_USE_TOOLS);
     }
@@ -349,7 +360,15 @@ export class Agent {
         }
 
         for (const tc of finalToolCalls) {
-          const args = JSON.parse(tc.function.arguments || '{}');
+          let args: Record<string, any>;
+          try {
+            args = JSON.parse(tc.function.arguments || '{}');
+          } catch {
+            const result = `Error: Failed to parse tool arguments for '${tc.function.name}': ${tc.function.arguments}`;
+            this.messages.push({ role: 'tool', content: result, toolCallId: tc.id });
+            this.onToolResult?.(tc.function.name, result);
+            continue;
+          }
           this.onToolUse?.(tc.function.name, args);
 
           const permission = this.evaluatePermission(tc.function.name, args);
@@ -449,7 +468,7 @@ export class Agent {
 
       // Process next pending event
       if (this.pendingEvents.length > 0) {
-        setTimeout(() => this.processPendingEvent(), 0);
+        setTimeout(() => this.processPendingEvent().catch(() => {}), 0);
       }
     }
   }

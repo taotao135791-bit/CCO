@@ -75,11 +75,11 @@ const DEFAULT_CONFIG: AppConfig = {
     },
     {
       name: 'kimi',
-      format: 'anthropic',
-      baseURL: 'https://api.moonshot.cn',
+      format: 'openai',
+      baseURL: 'https://api.moonshot.cn/v1',
       apiKey: '',
-      defaultModel: 'claude-sonnet-4-20250514',
-      models: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514'],
+      defaultModel: 'kimi-k2-0711-preview',
+      models: ['kimi-k2-0711-preview', 'moonshot-v1-128k'],
     },
     // OpenAI 兼容格式
     {

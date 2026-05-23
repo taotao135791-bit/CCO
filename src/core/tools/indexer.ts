@@ -1,6 +1,7 @@
 import { globby } from 'globby';
 import { readFileSync, statSync } from 'fs';
 import { createHash } from 'crypto';
+import { resolve } from 'path';
 
 interface FileIndex {
   path: string;
@@ -23,12 +24,14 @@ export class CodeIndexer {
     });
 
     let count = 0;
+    const baseDir = process.cwd();
     for (const file of files) {
       try {
-        const stat = statSync(file);
+        const absPath = resolve(baseDir, file);
+        const stat = statSync(absPath);
         if (stat.size > this.maxFileSize) continue;
 
-        const content = readFileSync(file, 'utf-8');
+        const content = readFileSync(absPath, 'utf-8');
         const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
 
         const existing = this.index.get(file);

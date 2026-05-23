@@ -3,6 +3,7 @@ import { getRole } from './roles.js';
 import { coordinator } from './coordinator.js';
 import { globby } from 'globby';
 import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 export type WorkflowType = 'review' | 'pair' | 'swarm';
 
@@ -47,6 +48,9 @@ export class WorkflowEngine {
       content: `Code Review Report from Reviewer Agent:\n\n${review}\n\nPlease address the issues identified above.`,
     });
 
+    // Dispose temporary reviewer agent
+    try { agentManager.removeAgent(reviewer.id); } catch { /* not critical */ }
+
     return {
       success: true,
       agents: [reviewer.id],
@@ -78,6 +82,9 @@ export class WorkflowEngine {
       role: 'user',
       content: `Your pair partner wrote this implementation:\n\n${implementation}\n\nPlease review and improve it. Apply the changes directly.`,
     });
+
+    // Dispose temporary pair agent
+    try { agentManager.removeAgent(pair.id); } catch { /* not critical */ }
 
     return {
       success: true,
@@ -116,6 +123,11 @@ export class WorkflowEngine {
         await worker.sendUserMessage(task);
       })
     );
+
+    // Dispose temporary swarm worker agents
+    for (const id of workerAgents) {
+      try { agentManager.removeAgent(id); } catch { /* not critical */ }
+    }
 
     return {
       success: true,

@@ -203,6 +203,9 @@ export function useCommands(deps: CommandDeps) {
             } else {
               addSystemMessage(`审查失败: ${result.error}`);
             }
+          }).catch((err) => {
+            setIsProcessing(false);
+            addSystemMessage(`审查出错: ${err.message || String(err)}`);
           });
           break;
         }
@@ -214,6 +217,9 @@ export function useCommands(deps: CommandDeps) {
             workflowEngine.pairProgramming(task).then((result) => {
               setIsProcessing(false);
               addSystemMessage(`结对编程已启动。${result.summary}`);
+            }).catch((err) => {
+              setIsProcessing(false);
+              addSystemMessage(`结对编程出错: ${err.message || String(err)}`);
             });
           } else {
             addSystemMessage('用法: /pair <编码任务>');
@@ -233,6 +239,9 @@ export function useCommands(deps: CommandDeps) {
               } else {
                 addSystemMessage(`批量处理失败: ${result.error}`);
               }
+            }).catch((err) => {
+              setIsProcessing(false);
+              addSystemMessage(`批量处理出错: ${err.message || String(err)}`);
             });
           } else {
             addSystemMessage('用法: /swarm <glob模式> <指令>');

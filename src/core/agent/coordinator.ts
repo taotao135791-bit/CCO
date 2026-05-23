@@ -59,6 +59,10 @@ export class Coordinator {
 
     await this.executePlan(planId, plan);
 
+    // Clean up completed plan
+    this.activePlans.delete(planId);
+    this.onPlanUpdate?.(planId, plan);
+
     return plan;
   }
 
@@ -225,6 +229,13 @@ export class Coordinator {
               });
             }
 
+            // Dispose worker agent to free resources
+            try {
+              agentRegistry.removeAgent(worker.id);
+            } catch {
+              // Disposal may fail — not critical
+            }
+
             this.onPlanUpdate?.(planId, plan);
           } catch (err: any) {
             subTask.status = 'failed';
@@ -252,16 +263,17 @@ export class Coordinator {
     }
   }
 
-  private async handleResult(fromAgentId: string, payload: any): Promise<void> {
-    // Results are handled in executePlan
+  private async handleResult(_fromAgentId: string, _payload: any): Promise<void> {
+    // Results are handled inline in executePlan
   }
 
   private async handleRequest(fromAgentId: string, payload: any): Promise<void> {
     const leadAgent = agentRegistry.getAgent(this.leadAgentId);
     if (!leadAgent) return;
 
+    // Send help response back to the requesting worker via event bus
     const response = `Agent ${fromAgentId} needs help: ${payload.question}`;
-    leadAgent.messages.push({ role: 'user', content: response });
+    this.bus.send(this.leadAgentId, fromAgentId, 'message', { answer: response });
   }
 
   getActivePlans(): Array<{ planId: string; plan: TaskPlan }> {
