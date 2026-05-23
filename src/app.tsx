@@ -85,6 +85,7 @@ export const App: React.FC = () => {
   /* UI toggles */
   const [showHelp, setShowHelp] = React.useState(false);
   const [showAgents, setShowAgents] = React.useState(false);
+  const [menuLines, setMenuLines] = React.useState(0);
 
   /* ID helper – stable ref */
   const idCounterRef = React.useRef(0);
@@ -101,7 +102,7 @@ export const App: React.FC = () => {
   const helpRows = showHelp ? 34 : 0;
   const permissionRows = pendingPermission ? 6 : 0;
   const taskRows = showTaskPanel ? 6 : 0;
-  const messageViewportHeight = Math.max(3, stdout.rows - helpRows - permissionRows - taskRows - 5);
+  const messageViewportHeight = Math.max(3, stdout.rows - helpRows - permissionRows - taskRows - 5 - menuLines);
 
   /* Scroll */
   const {
@@ -312,6 +313,7 @@ export const App: React.FC = () => {
               disabled={isProcessing}
               disabledText={pendingPermission ? '等待权限确认...' : '思考中...'}
               mouseEventNonce={mouseEventNonce}
+              onMenuToggle={(_isOpen, lines) => setMenuLines(lines)}
             />
           </Box>
         </Box>

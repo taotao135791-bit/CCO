@@ -101,6 +101,7 @@ interface Props {
   disabledText?: string;
   mouseEventNonce?: number;
   placeholder?: string;
+  onMenuToggle?: (isOpen: boolean, lineCount: number) => void;
 }
 
 export const InputBox: React.FC<Props> = ({
@@ -109,6 +110,7 @@ export const InputBox: React.FC<Props> = ({
   disabled,
   disabledText = 'Thinking...',
   mouseEventNonce,
+  onMenuToggle,
   placeholder = '输入任何问题，或输入 / 查看命令',
 }) => {
   const [query, setQuery] = useState('');
@@ -185,7 +187,9 @@ export const InputBox: React.FC<Props> = ({
 
   useEffect(() => {
     showMenuRef.current = showMenu;
-  }, [showMenu]);
+    const menuLines = showMenu ? Math.min(filteredCommands.length, MENU_HEIGHT) + (filteredCommands.length > MENU_HEIGHT ? 1 : 0) : 0;
+    onMenuToggle?.(showMenu, menuLines);
+  }, [showMenu, filteredCommands.length]);
 
   const scrollOffset = useMemo(() => {
     if (!showMenu) return 0;
