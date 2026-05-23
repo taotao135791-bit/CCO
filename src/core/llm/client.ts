@@ -149,12 +149,15 @@ export class LLMClient {
         maxRetries: 2,
       });
     } else {
+      const isKimi = this.provider.baseURL.includes('kimi.com') || this.provider.baseURL.includes('moonshot.cn');
       this.openaiClient = new OpenAI({
         baseURL: this.provider.baseURL,
         apiKey: this.provider.apiKey,
         defaultHeaders: {
           'HTTP-Referer': 'https://github.com/claude-code-open',
           'X-Title': 'Claude Code Open',
+          // Kimi For Coding API requires a whitelisted Coding Agent User-Agent
+          ...(isKimi ? { 'User-Agent': 'claude-code/1.0.0' } : {}),
         },
         maxRetries: 2,
         timeout: 120000,
