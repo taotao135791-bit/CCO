@@ -1,9 +1,6 @@
 import { agentManager } from './manager.js';
 import { getRole } from './roles.js';
-import { coordinator } from './coordinator.js';
 import { globby } from 'globby';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 
 export type WorkflowType = 'review' | 'pair' | 'swarm';
 

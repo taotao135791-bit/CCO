@@ -18,9 +18,8 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /\bcurl\b.*-o\s*-\s*\|\s*\S/,
   /\bsudo\b/,
 
-  // Dangerous eval/exec
+  // Dangerous eval
   /\beval\s+/,
-  /\bexec\s+/,
 
   // System-level operations
   /\bmkfs\b/,

@@ -358,7 +358,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         const query = encodeURIComponent(args.query);
         const url = `https://duckduckgo.com/html/?q=${query}`;
         const resp = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClaudeCodeOpen/0.1)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClaudeCodeOpen/1.4)' },
         });
         const html = await resp.text();
         const snippets = html.match(/class="result__snippet"[^>]*>([^<]+)/g);
@@ -377,7 +377,7 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         }
 
         const resp = await fetch(args.url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClaudeCodeOpen/0.1)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClaudeCodeOpen/1.4)' },
           redirect: 'follow',
           signal: AbortSignal.timeout(30000),
         });

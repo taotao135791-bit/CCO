@@ -101,6 +101,9 @@ export class AgentManager {
     const lastMsg = child.messages[child.messages.length - 1];
     const result = lastMsg?.role === 'assistant' ? lastMsg.content : 'No result';
 
+    // Dispose child agent to free resources
+    try { agentRegistry.removeAgent(child.id); } catch { /* not critical */ }
+
     return { agentId: child.id, result };
   }
 

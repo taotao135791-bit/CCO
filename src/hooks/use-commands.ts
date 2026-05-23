@@ -255,6 +255,9 @@ export function useCommands(deps: CommandDeps) {
             setIsProcessing(false);
             const stats = codeIndexer.getStats();
             addSystemMessage(`已索引 ${count} 个文件。总计: ${stats.totalFiles} 个文件，${(stats.totalSize / 1024).toFixed(1)} KB`);
+          }).catch((err: any) => {
+            setIsProcessing(false);
+            addSystemMessage(`索引出错: ${err.message || String(err)}`);
           });
           break;
         }

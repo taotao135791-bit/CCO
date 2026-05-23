@@ -59,10 +59,10 @@ const DEFAULT_CONFIG: AppConfig = {
     {
       name: 'deepseek',
       format: 'openai',
-      baseURL: 'https://api.deepseek.com',
+      baseURL: 'https://api.deepseek.com/v1',
       apiKey: '',
-      defaultModel: 'deepseek-v4-pro',
-      models: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner'],
+      defaultModel: 'deepseek-chat',
+      models: ['deepseek-chat', 'deepseek-reasoner'],
     },
     // Anthropic 格式（原生 Claude 协议）
     {

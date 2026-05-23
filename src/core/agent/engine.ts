@@ -247,8 +247,8 @@ export class Agent {
         this.pruneMessages();
 
         // Context window management: compact if approaching limit
-        if (needsCompaction(this.messages, 100000, 0.8)) {
-          const result = compactMessages(this.messages, { preserveRecent: 10, maxTokens: 80000 });
+        if (needsCompaction(this.messages, this.contextMaxTokens, 0.8)) {
+          const result = compactMessages(this.messages, { preserveRecent: 10, maxTokens: Math.floor(this.contextMaxTokens * 0.6) });
           if (result) {
             this.messages = result.compactedMessages;
             this.onStream?.(`[Context compacted: ${result.tokensBefore} → ${result.tokensAfter} tokens]\n`);
