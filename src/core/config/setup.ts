@@ -21,10 +21,10 @@ const PRESETS: ProviderPreset[] = [
     name: 'deepseek',
     label: 'DeepSeek',
     formats: [
-      { format: 'openai', baseURL: 'https://api.deepseek.com', label: 'OpenAI 兼容格式（推荐，支持工具调用）' },
+      { format: 'openai', baseURL: 'https://api.deepseek.com/v1', label: 'OpenAI 兼容格式（推荐，支持工具调用）' },
       { format: 'anthropic', baseURL: 'https://api.deepseek.com/anthropic', label: 'Anthropic 原生格式（⚠️ 不支持工具调用，仅基础对话）' },
     ],
-    modelHint: 'deepseek-v4-pro, deepseek-v4-flash',
+    modelHint: 'deepseek-chat, deepseek-reasoner',
   },
   {
     name: 'anthropic',
@@ -54,10 +54,10 @@ const PRESETS: ProviderPreset[] = [
     name: 'kimi',
     label: 'Kimi (Moonshot)',
     formats: [
-      { format: 'anthropic', baseURL: 'https://api.moonshot.cn', label: 'Anthropic 原生格式' },
-      { format: 'openai', baseURL: 'https://api.moonshot.cn/v1', label: 'OpenAI 兼容格式' },
+      { format: 'openai', baseURL: 'https://api.kimi.com/coding/v1', label: 'OpenAI 兼容格式（Kimi For Coding）' },
+      { format: 'openai', baseURL: 'https://api.moonshot.cn/v1', label: 'OpenAI 兼容格式（Moonshot 通用）' },
     ],
-    modelHint: 'claude-sonnet-4-20250514, kimi-k2-0711-preview',
+    modelHint: 'kimi-for-coding, kimi-k2-0711-preview',
   },
   {
     name: 'gemini',
@@ -68,12 +68,52 @@ const PRESETS: ProviderPreset[] = [
     modelHint: 'gemini-2.5-pro, gemini-2.5-flash',
   },
   {
+    name: 'volcengine',
+    label: '火山引擎（豆包）',
+    formats: [
+      { format: 'openai', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', label: 'OpenAI 兼容格式' },
+    ],
+    modelHint: 'doubao-pro-32k, doubao-pro-128k, doubao-1-5-pro-32k',
+  },
+  {
+    name: 'zhipu',
+    label: '智谱 AI (GLM)',
+    formats: [
+      { format: 'openai', baseURL: 'https://open.bigmodel.cn/api/paas/v4', label: 'OpenAI 兼容格式' },
+    ],
+    modelHint: 'glm-4-plus, glm-4-air, glm-4-flash',
+  },
+  {
+    name: 'dashscope',
+    label: '阿里云百炼 (Qwen)',
+    formats: [
+      { format: 'openai', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', label: 'OpenAI 兼容格式' },
+    ],
+    modelHint: 'qwen-max, qwen-plus, qwen3-coder-plus, qwq-plus',
+  },
+  {
+    name: 'minimax',
+    label: 'MiniMax',
+    formats: [
+      { format: 'openai', baseURL: 'https://api.minimaxi.com/v1', label: 'OpenAI 兼容格式' },
+    ],
+    modelHint: 'MiniMax-M2.7, MiniMax-M2',
+  },
+  {
+    name: 'xiaomi-mimo',
+    label: '小米 MiMo',
+    formats: [
+      { format: 'openai', baseURL: 'https://api.xiaomimimo.com/v1', label: 'OpenAI 兼容格式' },
+    ],
+    modelHint: 'MiMo-V2-Pro, MiMo-V2-Flash',
+  },
+  {
     name: 'siliconflow',
     label: 'SiliconFlow',
     formats: [
       { format: 'openai', baseURL: 'https://api.siliconflow.cn/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'claude-sonnet-4-20250514, deepseek-v4-pro',
+    modelHint: 'deepseek-chat, Qwen/Qwen3-Coder',
   },
   {
     name: 'custom',

@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { agentManager } from './core/agent/manager.js';
 import { configManager } from './core/config/manager.js';
-import { onTerminalMouseEvent } from './core/terminal/mouse.js';
 import { useAgentManager } from './hooks/use-agent-manager.js';
 import { useTranscript } from './hooks/use-transcript.js';
 import { useScroll } from './hooks/use-scroll.js';
@@ -12,20 +11,10 @@ import { StatusBar } from './components/StatusBar.js';
 import { AgentPanel } from './components/AgentPanel.js';
 import { TaskPanel } from './components/TaskPanel.js';
 
-/* ── Mouse input parsing ─────────────────────────────────────────────────── */
+/* ── Mouse input detection (fallback for non-SGR terminals) ──────────────── */
 
-const MOUSE_EVENT_PATTERN = /(?:\x1b\[)?\[?<?(\d+);(\d+);(\d+)([Mm])/g;
 const MOUSE_SEQUENCE_ONLY = /^(?:(?:\x1b\[)?\[?<?\d+;\d+;\d+[Mm])+$/;
 const MOUSE_FRAGMENT_CHARS = /^[\x1b[<0-9;Mm]+$/;
-
-function parseMouseEvents(input: string) {
-  return Array.from(input.matchAll(MOUSE_EVENT_PATTERN), (match) => ({
-    button: Number(match[1]),
-    x: Number(match[2]),
-    y: Number(match[3]),
-    release: match[4] === 'm',
-  }));
-}
 
 function isMouseInput(input: string): boolean {
   if (!input) return false;
@@ -106,8 +95,8 @@ export const App: React.FC = () => {
 
   /* Scroll */
   const {
-    mouseEventNonce, setMouseEventNonce,
-    scrollHistory, jumpScrollFromMouseY,
+    mouseEventNonce,
+    scrollHistory,
     effectiveScrollOffset, visibleStart, visibleLines, topPadding,
   } = useScroll(transcriptLines, messageViewportHeight, showAgents, showHelp, stdout.columns);
 
@@ -126,20 +115,8 @@ export const App: React.FC = () => {
 
   /* ── Keyboard / mouse input ───────────────────────────────────────────── */
   useInput((input, key) => {
-    // Mouse events from stdin
-    const mouseEvents = parseMouseEvents(input);
-    if (mouseEvents.length > 0 || isMouseInput(input)) {
-      setMouseEventNonce((n) => n + 1);
-      for (const mouse of mouseEvents) {
-        if (mouse.button === 64) scrollHistory('older', 3);
-        else if (mouse.button === 65) scrollHistory('newer', 3);
-        else if (!mouse.release && (mouse.button === 0 || mouse.button === 32)) {
-          const scrollbarColumn = stdout.columns - (showAgents ? 26 : 1);
-          if (mouse.x >= scrollbarColumn) jumpScrollFromMouseY(mouse.y);
-        }
-      }
-      return;
-    }
+    // Residual mouse sequences that slipped past the terminal parser — discard
+    if (isMouseInput(input)) return;
 
     // Permission prompt keys
     if (pendingPermission) {
@@ -191,8 +168,8 @@ export const App: React.FC = () => {
       }
     }
 
-    // Tab toggles agent panel
-    if (input === '\t') setShowAgents((v) => !v);
+    // Tab toggles agent panel (only when menu is not open)
+    if (input === '\t' && menuLines === 0) setShowAgents((v) => !v);
   });
 
   const activeAgent = agentManager.getAgent(activeAgentId);

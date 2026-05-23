@@ -129,6 +129,7 @@ export const InputBox: React.FC<Props> = ({
   const mouseGuardUntilRef = useRef(0);
   const hasSeenMouseNonceRef = useRef(false);
   const mouseGuardTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const onMenuToggleRef = useRef(onMenuToggle);
 
   const updateQuery = (value: string, nextCursor = value.length) => {
     const safeCursor = Math.max(0, Math.min(nextCursor, value.length));
@@ -148,6 +149,7 @@ export const InputBox: React.FC<Props> = ({
   useEffect(() => { cursorRef.current = cursor; }, [cursor]);
   useEffect(() => { menuIndexRef.current = menuIndex; }, [menuIndex]);
   useEffect(() => { menuClosedRef.current = menuClosed; }, [menuClosed]);
+  useEffect(() => { onMenuToggleRef.current = onMenuToggle; }, [onMenuToggle]);
 
   useEffect(() => {
     if (mouseEventNonce === undefined) return;
@@ -187,8 +189,8 @@ export const InputBox: React.FC<Props> = ({
 
   useEffect(() => {
     showMenuRef.current = showMenu;
-    const menuLines = showMenu ? Math.min(filteredCommands.length, MENU_HEIGHT) + (filteredCommands.length > MENU_HEIGHT ? 1 : 0) : 0;
-    onMenuToggle?.(showMenu, menuLines);
+    const menuLineCount = showMenu ? Math.min(filteredCommands.length, MENU_HEIGHT) + (filteredCommands.length > MENU_HEIGHT ? 1 : 0) : 0;
+    onMenuToggleRef.current?.(showMenu, menuLineCount);
   }, [showMenu, filteredCommands.length]);
 
   const scrollOffset = useMemo(() => {
