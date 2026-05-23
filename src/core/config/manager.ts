@@ -76,10 +76,10 @@ const DEFAULT_CONFIG: AppConfig = {
     {
       name: 'kimi',
       format: 'openai',
-      baseURL: 'https://api.moonshot.cn/v1',
+      baseURL: 'https://api.kimi.com/coding/v1',
       apiKey: '',
-      defaultModel: 'kimi-k2-0711-preview',
-      models: ['kimi-k2-0711-preview', 'moonshot-v1-128k'],
+      defaultModel: 'kimi-for-coding',
+      models: ['kimi-for-coding'],
     },
     // OpenAI 兼容格式
     {
