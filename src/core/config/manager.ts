@@ -119,6 +119,51 @@ const DEFAULT_CONFIG: AppConfig = {
       defaultModel: 'claude-sonnet-4-20250514',
       models: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514'],
     },
+    // 火山引擎（豆包 / Doubao）
+    {
+      name: 'volcengine',
+      format: 'openai',
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+      apiKey: '',
+      defaultModel: 'doubao-pro-32k',
+      models: ['doubao-pro-32k', 'doubao-lite-32k', 'doubao-pro-128k', 'doubao-1-5-pro-32k'],
+    },
+    // 智谱 AI (GLM / ZhipuAI)
+    {
+      name: 'zhipu',
+      format: 'openai',
+      baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+      apiKey: '',
+      defaultModel: 'glm-4-plus',
+      models: ['glm-4-plus', 'glm-4-air', 'glm-4-flash', 'glm-4-long'],
+    },
+    // 阿里云百炼 (DashScope / Qwen)
+    {
+      name: 'dashscope',
+      format: 'openai',
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      apiKey: '',
+      defaultModel: 'qwen-max',
+      models: ['qwen-max', 'qwen-plus', 'qwen-turbo', 'qwen3-coder-plus', 'qwq-plus'],
+    },
+    // MiniMax
+    {
+      name: 'minimax',
+      format: 'openai',
+      baseURL: 'https://api.minimaxi.com/v1',
+      apiKey: '',
+      defaultModel: 'MiniMax-M2.7',
+      models: ['MiniMax-M2.7', 'MiniMax-M2'],
+    },
+    // 小米 MiMo
+    {
+      name: 'xiaomi-mimo',
+      format: 'openai',
+      baseURL: 'https://api.xiaomimimo.com/v1',
+      apiKey: '',
+      defaultModel: 'MiMo-V2-Pro',
+      models: ['MiMo-V2-Pro', 'MiMo-V2-Flash'],
+    },
     {
       name: 'custom-openai',
       format: 'openai',

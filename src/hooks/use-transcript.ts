@@ -120,7 +120,14 @@ function buildTranscriptLines(messages: DisplayMessage[], width: number): Transc
     if (message.role === 'system') continue;
 
     if (message.role === 'user') {
-      lines.push({ text: `> ${message.content}`, color: 'blue', bold: true });
+      const userContent = message.content.length > 500
+        ? message.content.slice(0, 500) + '...'
+        : message.content;
+      const wrappedLines = wrapText(userContent, contentWidth - 2);
+      lines.push({ text: `❯ ${wrappedLines[0] || ''}`, color: 'blue', bold: true });
+      for (let i = 1; i < wrappedLines.length; i++) {
+        lines.push({ text: `  ${wrappedLines[i]}`, color: 'blue' });
+      }
       lines.push({ text: '' });
       continue;
     }

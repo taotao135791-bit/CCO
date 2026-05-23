@@ -65,7 +65,7 @@ export const StatusBar: React.FC<Props> = ({
 }) => {
   const provider = configManager.get().activeProvider;
   const { stdout } = useStdout();
-  const sep = '─'.repeat(Math.max(1, stdout.columns));
+  const sep = '─'.repeat(Math.max(1, (stdout?.columns || 80) - 2));
 
   return (
     <Box flexDirection="column">

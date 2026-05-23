@@ -59,7 +59,7 @@ export const ChatMessage: React.FC<Props> = ({ message, agentName }) => {
 
     return (
       <Box flexDirection="column" flexShrink={0}>
-        <Text bold color="blue">{'>'} {message.content}</Text>
+        <Text bold color="blue">{'❯'} {message.content}</Text>
         <Box height={1} />
       </Box>
     );

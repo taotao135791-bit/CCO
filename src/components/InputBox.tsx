@@ -415,7 +415,7 @@ export const InputBox: React.FC<Props> = ({
       )}
 
       <Box flexDirection="row" paddingX={1}>
-        <Text color={disabled ? 'gray' : 'white'} bold>{'>'} </Text>
+        <Text color={disabled ? 'gray' : 'cyan'} bold>{disabled ? '>' : '❯'} </Text>
         {disabled ? (
           <Text color="gray">{disabledText}</Text>
         ) : mouseGuardActive ? (
