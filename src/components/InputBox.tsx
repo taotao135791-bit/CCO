@@ -229,8 +229,12 @@ export const InputBox: React.FC<Props> = ({
   useInput((input, key) => {
     if (disabled) return;
 
+    // Explicit DEL / BS detection — some terminals don't set key.backspace
+    const isBackspace = key.backspace || input === '\x7f' || input === '\x08';
+    const isDelete = key.delete || (key.ctrl && input === 'd');
+
     const guardActive = Date.now() < mouseGuardUntilRef.current;
-    if (isMousePayload(input, guardActive)) {
+    if (!isBackspace && !isDelete && isMousePayload(input, guardActive)) {
       mouseGuardUntilRef.current = Date.now() + 320;
       setMouseGuardActive(true);
       return;
@@ -315,7 +319,7 @@ export const InputBox: React.FC<Props> = ({
       return;
     }
 
-    if (key.backspace) {
+    if (isBackspace) {
       if (currentCursor > 0) {
         const newQuery =
           currentQuery.slice(0, currentCursor - 1) + currentQuery.slice(currentCursor);
@@ -328,7 +332,7 @@ export const InputBox: React.FC<Props> = ({
       return;
     }
 
-    if (key.delete) {
+    if (isDelete) {
       if (currentCursor < currentQuery.length) {
         const newQuery =
           currentQuery.slice(0, currentCursor) + currentQuery.slice(currentCursor + 1);
