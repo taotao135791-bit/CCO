@@ -230,8 +230,11 @@ export const InputBox: React.FC<Props> = ({
     if (disabled) return;
 
     // Explicit DEL / BS detection — some terminals don't set key.backspace
+    // On macOS, the Backspace key sends \x7f (DEL) which Ink maps to key.delete.
+    // We treat it as backspace when cursor is at/past end of text, since that's
+    // what users expect from the physical Backspace key.
     const isBackspace = key.backspace || input === '\x7f' || input === '\x08';
-    const isDelete = key.delete || (key.ctrl && input === 'd');
+    const isDelete = (key.delete && !isBackspace) || (key.ctrl && input === 'd');
 
     const guardActive = Date.now() < mouseGuardUntilRef.current;
     if (!isBackspace && !isDelete && isMousePayload(input, guardActive)) {
@@ -333,11 +336,22 @@ export const InputBox: React.FC<Props> = ({
     }
 
     if (isDelete) {
-      if (currentCursor < currentQuery.length) {
+      // On macOS terminals, Backspace sends \x7f (DEL) which Ink maps to key.delete.
+      // When cursor is at end of text (or input is empty with key.delete),
+      // treat it as Backspace — delete the character BEFORE the cursor.
+      if (key.delete && (input === '' || currentCursor >= currentQuery.length)) {
+        if (currentCursor > 0) {
+          const newQuery =
+            currentQuery.slice(0, currentCursor - 1) + currentQuery.slice(currentCursor);
+          updateQuery(newQuery, currentCursor - 1);
+          if (!newQuery.startsWith('/') && !menuClosedRef.current) {
+            closeMenu();
+          }
+        }
+      } else if (currentCursor < currentQuery.length) {
         const newQuery =
           currentQuery.slice(0, currentCursor) + currentQuery.slice(currentCursor + 1);
         updateQuery(newQuery, currentCursor);
-        // Update menu state after delete
         if (!newQuery.startsWith('/') && !menuClosedRef.current) {
           closeMenu();
         }
