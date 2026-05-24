@@ -17,3 +17,4 @@ coverage/
 
 # OS
 Thumbs.db
+.backup-cco-config/
