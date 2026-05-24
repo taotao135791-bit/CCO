@@ -109,21 +109,6 @@ export const WelcomeScreen: React.FC = () => {
       </Box>
 
       <Box height={1} />
-
-      {/* ── Feature status tags (two rows) ── */}
-      <Box flexDirection="row" gap={3}>
-        <FeatureTag label="多Agent" />
-        <FeatureTag label="14工具" />
-        <FeatureTag label="权限" />
-        <FeatureTag label={`MCP${mcpCount > 0 ? `(${mcpCount})` : ''}`} ok={mcpCount > 0} />
-        <FeatureTag label="上下文" />
-        <FeatureTag label="持久化" />
-      </Box>
-
-      <Box height={1} />
-
-      {/* ── Bottom hint ── */}
-      <Text color="gray" dimColor>输入消息开始对话，或输入 <Text color="cyan">/</Text> 查看命令列表</Text>
     </Box>
   );
 };
