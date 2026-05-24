@@ -85,7 +85,20 @@ export class TerminalMouseInputParser {
 }
 
 function isPartialSgrMouse(input: string): boolean {
-  if (MOUSE_PREFIX.startsWith(input)) return true;
+  if (!input) return false;
+
+  // Only buffer escape sequences that look like the START of an SGR mouse sequence.
+  // A bare '\x1b' (Escape key) or '\x1b[A' (arrow key) must NOT be buffered,
+  // otherwise the next input chunk gets concatenated and corrupted.
+  //
+  // SGR mouse sequences always start with '\x1b[<' (MOUSE_PREFIX).
+  // We require at least 2 chars to distinguish from a lone Escape key.
+  if (input.length < 2) return false;
+
+  // Check if input is a non-empty prefix of MOUSE_PREFIX ('\x1b[<')
+  if (input.length <= MOUSE_PREFIX.length && MOUSE_PREFIX.startsWith(input)) return true;
+
+  // Check if input starts with the full MOUSE_PREFIX followed by valid digit/semicolon body
   if (!input.startsWith(MOUSE_PREFIX)) return false;
 
   const body = input.slice(MOUSE_PREFIX.length);

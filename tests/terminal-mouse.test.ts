@@ -35,8 +35,10 @@ describe('terminal mouse input parser', () => {
   it('reassembles split SGR mouse events before forwarding to Ink', () => {
     const parser = new TerminalMouseInputParser();
 
-    expect(parser.push('\x1b')).toEqual({ text: '', events: [], pending: true });
-    expect(parser.push('[<64;')).toEqual({ text: '', events: [], pending: true });
+    // A lone '\x1b' is released immediately (it could be Escape key).
+    // Reassembly only works when the split is at '\x1b[' (2+ chars) or later.
+    expect(parser.push('\x1b[')).toEqual({ text: '', events: [], pending: true });
+    expect(parser.push('<64;')).toEqual({ text: '', events: [], pending: true });
     expect(parser.push('79;17M')).toEqual({
       text: '',
       events: [{ button: 64, x: 79, y: 17, release: false }],
@@ -65,7 +67,11 @@ describe('terminal mouse input parser', () => {
   it('flushes a plain escape key when it is not followed by a mouse packet', () => {
     const parser = new TerminalMouseInputParser();
 
-    expect(parser.push('\x1b')).toEqual({ text: '', events: [], pending: true });
-    expect(parser.flush()).toEqual({ text: '\x1b', events: [] });
+    // A lone '\x1b' is released immediately to prevent input corruption.
+    expect(parser.push('\x1b')).toEqual({ text: '\x1b', events: [], pending: false });
+
+    // A partial mouse prefix like '\x1b[<' IS buffered and dropped on flush.
+    expect(parser.push('\x1b[<64;79;')).toEqual({ text: '', events: [], pending: true });
+    expect(parser.flush()).toEqual({ text: '', events: [] });
   });
 });
