@@ -1,0 +1,198 @@
+{
+  "activeProvider": "openrouter",
+  "providers": [
+    {
+      "name": "deepseek",
+      "format": "openai",
+      "baseURL": "https://api.deepseek.com/v1",
+      "apiKey": "",
+      "defaultModel": "deepseek-chat",
+      "models": [
+        "deepseek-chat",
+        "deepseek-reasoner"
+      ]
+    },
+    {
+      "name": "anthropic",
+      "format": "anthropic",
+      "baseURL": "https://api.anthropic.com",
+      "apiKey": "",
+      "defaultModel": "claude-sonnet-4-20250514",
+      "models": [
+        "claude-opus-4-20250514",
+        "claude-sonnet-4-20250514",
+        "claude-haiku-4-20250514"
+      ]
+    },
+    {
+      "name": "kimi",
+      "format": "openai",
+      "baseURL": "https://api.kimi.com/coding/v1",
+      "apiKey": "",
+      "defaultModel": "kimi-for-coding",
+      "models": [
+        "kimi-for-coding"
+      ]
+    },
+    {
+      "name": "openrouter",
+      "format": "openai",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "apiKey": "",
+      "defaultModel": "anthropic/claude-sonnet-4-20250514",
+      "models": [
+        "anthropic/claude-opus-4-20250514",
+        "anthropic/claude-sonnet-4-20250514",
+        "openai/gpt-4o",
+        "google/gemini-2.5-pro"
+      ]
+    },
+    {
+      "name": "openai",
+      "format": "openai",
+      "baseURL": "https://api.openai.com/v1",
+      "apiKey": "",
+      "defaultModel": "gpt-4o",
+      "models": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "o3-mini"
+      ]
+    },
+    {
+      "name": "gemini",
+      "format": "openai",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "apiKey": "",
+      "defaultModel": "gemini-2.5-pro",
+      "models": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash"
+      ]
+    },
+    {
+      "name": "siliconflow",
+      "format": "openai",
+      "baseURL": "https://api.siliconflow.cn/v1",
+      "apiKey": "",
+      "defaultModel": "claude-sonnet-4-20250514",
+      "models": [
+        "claude-sonnet-4-20250514",
+        "claude-opus-4-20250514"
+      ]
+    },
+    {
+      "name": "volcengine",
+      "format": "openai",
+      "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
+      "apiKey": "",
+      "defaultModel": "doubao-pro-32k",
+      "models": [
+        "doubao-pro-32k",
+        "doubao-lite-32k",
+        "doubao-pro-128k",
+        "doubao-1-5-pro-32k"
+      ]
+    },
+    {
+      "name": "zhipu",
+      "format": "openai",
+      "baseURL": "https://open.bigmodel.cn/api/paas/v4",
+      "apiKey": "",
+      "defaultModel": "glm-4-plus",
+      "models": [
+        "glm-4-plus",
+        "glm-4-air",
+        "glm-4-flash",
+        "glm-4-long"
+      ]
+    },
+    {
+      "name": "dashscope",
+      "format": "openai",
+      "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "apiKey": "",
+      "defaultModel": "qwen-max",
+      "models": [
+        "qwen-max",
+        "qwen-plus",
+        "qwen-turbo",
+        "qwen3-coder-plus",
+        "qwq-plus"
+      ]
+    },
+    {
+      "name": "minimax",
+      "format": "openai",
+      "baseURL": "https://api.minimaxi.com/v1",
+      "apiKey": "",
+      "defaultModel": "MiniMax-M2.7",
+      "models": [
+        "MiniMax-M2.7",
+        "MiniMax-M2"
+      ]
+    },
+    {
+      "name": "xiaomi-mimo",
+      "format": "openai",
+      "baseURL": "https://api.xiaomimimo.com/v1",
+      "apiKey": "",
+      "defaultModel": "MiMo-V2-Pro",
+      "models": [
+        "MiMo-V2-Pro",
+        "MiMo-V2-Flash"
+      ]
+    },
+    {
+      "name": "custom-openai",
+      "format": "openai",
+      "baseURL": "http://localhost:8080/v1",
+      "apiKey": "",
+      "defaultModel": "default",
+      "models": [
+        "default"
+      ]
+    },
+    {
+      "name": "custom-anthropic",
+      "format": "anthropic",
+      "baseURL": "http://localhost:8080",
+      "apiKey": "",
+      "defaultModel": "claude-sonnet-4-20250514",
+      "models": [
+        "claude-sonnet-4-20250514"
+      ]
+    }
+  ],
+  "defaultMaxTokens": 8192,
+  "debug": false,
+  "mcpServers": {},
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -r -f *)",
+      "Bash(rm -fr *)",
+      "Bash(sudo *)",
+      "Bash(chmod 777 *)",
+      "Bash(curl * | sh*)",
+      "Bash(curl * | bash*)",
+      "Bash(wget * | sh*)",
+      "Bash(wget * | bash*)",
+      "Bash(eval *)"
+    ],
+    "ask": [
+      "Write(*.env)"
+    ]
+  },
+  "skills": [],
+  "computerUse": {
+    "enabled": false,
+    "displayWidth": 1280,
+    "displayHeight": 800
+  },
+  "multiAgent": {
+    "enabled": true,
+    "maxAgents": 4
+  }
+}

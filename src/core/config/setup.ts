@@ -18,29 +18,9 @@ function ask(question: string): Promise<string> {
 }
 
 function askPassword(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    const iface = getReadline();
-    // Hide input for password
-    const stdout = process.stdout;
-    const originalWrite = stdout.write.bind(stdout);
-    let muted = false;
-
-    stdout.write = (chunk: any, ...args: any[]) => {
-      if (muted && typeof chunk === 'string') {
-        // Don't echo typed characters
-        return true as any;
-      }
-      return originalWrite(chunk, ...args);
-    };
-
-    muted = true;
-    iface.question(question, (answer) => {
-      muted = false;
-      stdout.write = originalWrite;
-      stdout.write('\n');
-      resolve(answer.trim());
-    });
-  });
+  // Use regular ask — terminal paste works reliably.
+  // API keys are stored securely in auth.json (0o600), not echoed to logs.
+  return ask(question);
 }
 
 interface ProviderPreset {
@@ -62,7 +42,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://api.deepseek.com/v1', label: 'OpenAI 兼容格式（推荐，支持工具调用）' },
     ],
-    modelHint: 'deepseek-chat, deepseek-reasoner',
+    modelHint: 'deepseek-chat, deepseek-reasoner, deepseek-v4-pro, deepseek-v4-flash',
   },
   {
     name: 'anthropic',
@@ -71,7 +51,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'anthropic', baseURL: 'https://api.anthropic.com', label: 'Anthropic 原生格式' },
     ],
-    modelHint: 'claude-sonnet-4-20250514, claude-opus-4-20250514',
+    modelHint: 'claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5',
     keyPrefix: 'sk-ant-',
   },
   {
@@ -81,7 +61,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://api.openai.com/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'gpt-4o, gpt-4o-mini, o3-mini, o4-mini',
+    modelHint: 'gpt-5.5, gpt-5.4, gpt-5, o4-mini, o3',
     keyPrefix: 'sk-',
   },
   {
@@ -91,7 +71,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://openrouter.ai/api/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'anthropic/claude-sonnet-4-20250514, openai/gpt-4o, google/gemini-2.5-pro',
+    modelHint: 'anthropic/claude-sonnet-4-6, openai/gpt-5.5, google/gemini-3.5-pro, deepseek/deepseek-v4-pro',
     keyPrefix: 'sk-or-',
   },
   // ── 国内服务商 ─────────────────────────────────
@@ -103,7 +83,7 @@ const PRESETS: ProviderPreset[] = [
       { format: 'openai', baseURL: 'https://api.kimi.com/coding/v1', label: 'OpenAI 兼容格式（Kimi For Coding）' },
       { format: 'openai', baseURL: 'https://api.moonshot.cn/v1', label: 'OpenAI 兼容格式（Moonshot 通用）' },
     ],
-    modelHint: 'kimi-for-coding, kimi-k2-0711-preview',
+    modelHint: 'kimi-k2.6, kimi-k2.5, kimi-for-coding',
   },
   {
     name: 'volcengine',
@@ -112,7 +92,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://ark.cn-beijing.volces.com/api/v3', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'doubao-pro-32k, doubao-pro-128k, doubao-1-5-pro-32k',
+    modelHint: 'doubao-seed-2-0-pro-260215, doubao-seed-1-8, doubao-1-5-pro-256k-250115',
   },
   {
     name: 'zhipu',
@@ -121,7 +101,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://open.bigmodel.cn/api/paas/v4', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'glm-4-plus, glm-4-air, glm-4-flash',
+    modelHint: 'glm-5.1, glm-5, glm-5-turbo, glm-4.7-flash',
   },
   {
     name: 'dashscope',
@@ -130,7 +110,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'qwen-max, qwen-plus, qwen3-coder-plus, qwq-plus',
+    modelHint: 'qwen3.7-max, qwen3.6-plus, qwen3.6-flash, qwen3.5-plus',
   },
   {
     name: 'minimax',
@@ -139,7 +119,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://api.minimaxi.com/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'MiniMax-M2.7, MiniMax-M2',
+    modelHint: 'MiniMax-M2.7, MiniMax-M2.7-highspeed, MiniMax-M2.5',
   },
   {
     name: 'xiaomi-mimo',
@@ -148,7 +128,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://api.xiaomimimo.com/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'MiMo-V2-Pro, MiMo-V2-Flash',
+    modelHint: 'mimo-v2.5-pro, mimo-v2.5, mimo-v2-pro, mimo-v2-flash',
   },
   {
     name: 'siliconflow',
@@ -157,7 +137,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://api.siliconflow.cn/v1', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'deepseek-chat, Qwen/Qwen3-Coder',
+    modelHint: 'deepseek/deepseek-v4-pro, moonshot/kimi-k2.6, zai/glm-5.1, qwen/qwen3.6-35b-a3b',
   },
   // ── 国际服务商 ─────────────────────────────────
   {
@@ -167,7 +147,7 @@ const PRESETS: ProviderPreset[] = [
     formats: [
       { format: 'openai', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', label: 'OpenAI 兼容格式' },
     ],
-    modelHint: 'gemini-2.5-pro, gemini-2.5-flash',
+    modelHint: 'gemini-3.5-pro, gemini-3.5-flash, gemini-2.5-pro',
   },
   // ── 自定义 ─────────────────────────────────────
   {
@@ -342,7 +322,7 @@ export async function runSetup(): Promise<void> {
   console.log('  模型名需与 API 提供商一致\n');
 
   const modelInput = await ask('模型名称: ');
-  const defaultModel = modelInput || (format === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
+  const defaultModel = modelInput || (format === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-5.5');
 
   // ── Step 5: Connection test ──
   console.log('\n⏳ 正在测试 API 连接...');
