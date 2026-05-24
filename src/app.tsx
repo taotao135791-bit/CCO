@@ -12,6 +12,7 @@ import { AgentPanel } from './components/AgentPanel.js';
 import { TaskPanel } from './components/TaskPanel.js';
 import { ProviderSelect } from './components/ProviderSelect.js';
 import { ModelSelect } from './components/ModelSelect.js';
+import { WelcomeScreen } from './components/WelcomeScreen.js';
 
 /* ── Mouse input detection (fallback for non-SGR terminals) ──────────────── */
 
@@ -270,6 +271,10 @@ export const App: React.FC = () => {
       <Box flexDirection="row" flexGrow={1} overflow="hidden">
         {/* Main chat area */}
         <Box flexDirection="column" flexGrow={1}>
+          {/* Welcome screen when no messages */}
+          {messages.length === 0 && !isProcessing && !showHelp && (
+            <WelcomeScreen />
+          )}
           <Box flexDirection="row" flexGrow={1} overflow="hidden">
             <Box flexDirection="column" flexGrow={1} height={messageViewportHeight} overflow="hidden">
               {topPadding > 0 && <Box height={topPadding} />}
