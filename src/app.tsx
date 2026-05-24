@@ -271,8 +271,8 @@ export const App: React.FC = () => {
       <Box flexDirection="row" flexGrow={1} overflow="hidden">
         {/* Main chat area */}
         <Box flexDirection="column" flexGrow={1}>
-          {/* Welcome screen when no messages */}
-          {messages.length === 0 && !isProcessing && !showHelp && (
+          {/* Welcome screen when no real messages yet */}
+          {messages.filter((m) => m.agentId !== 'system').length === 0 && !isProcessing && !showHelp && (
             <WelcomeScreen />
           )}
           <Box flexDirection="row" flexGrow={1} overflow="hidden">
