@@ -122,45 +122,6 @@ export const WelcomeScreen: React.FC = () => {
 
       <Box height={1} />
 
-      {/* ── Separator ── */}
-      <Box flexGrow={0} flexShrink={1}>
-        <Text color="gray" dimColor>{'─'.repeat(60)}</Text>
-      </Box>
-
-      <Box height={1} />
-
-      {/* ── Quick commands ── */}
-      <Box flexDirection="column">
-        <Text bold color="cyan">快速命令</Text>
-        <Box flexDirection="row" gap={4}>
-          <Box flexDirection="column">
-            <Text><Text color="cyan">/help     </Text><Text color="gray">所有命令</Text></Text>
-            <Text><Text color="cyan">/new      </Text><Text color="gray">创建 Agent</Text></Text>
-            <Text><Text color="cyan">/review   </Text><Text color="gray">代码审查</Text></Text>
-            <Text><Text color="cyan">/delegate </Text><Text color="gray">并行任务</Text></Text>
-          </Box>
-          <Box flexDirection="column">
-            <Text><Text color="cyan">/model    </Text><Text color="gray">切换模型</Text></Text>
-            <Text><Text color="cyan">/config   </Text><Text color="gray">配置信息</Text></Text>
-            <Text><Text color="cyan">/mcp      </Text><Text color="gray">MCP 管理</Text></Text>
-            <Text><Text color="cyan">/sessions </Text><Text color="gray">加载会话</Text></Text>
-          </Box>
-        </Box>
-      </Box>
-
-      <Box height={1} />
-
-      {/* ── Keyboard shortcuts ── */}
-      <Box flexDirection="column">
-        <Text bold color="cyan">快捷键</Text>
-        <Text>
-          <Text color="magenta">Tab </Text><Text color="gray">面板 </Text>
-          <Text color="magenta"> Esc </Text><Text color="gray">中断 </Text>
-          <Text color="magenta"> PgUp/Dn </Text><Text color="gray">滚动 </Text>
-          <Text color="magenta"> Alt+1-9 </Text><Text color="gray">切换</Text>
-        </Text>
-      </Box>
-
       {/* ── Bottom hint ── */}
       <Text color="gray" dimColor>输入消息开始对话，或输入 <Text color="cyan">/</Text> 查看命令列表</Text>
     </Box>
