@@ -6,8 +6,13 @@ import { mcpManager } from '../core/mcp/client.js';
 import { detectProject } from '../core/agent/project-detect.js';
 import { cwd } from 'process';
 import { basename } from 'path';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const VERSION = '1.7.0';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const VERSION = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')).version;
 
 /* ── Pixel font data (each letter: 4 cols × 5 rows) ─────────────────────── */
 
