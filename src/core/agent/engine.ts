@@ -8,6 +8,7 @@ import { sessionPersistence } from './persistence.js';
 import { compactMessages, needsCompaction, estimateMessageTokens } from './context-manager.js';
 import { suggestContextFiles, buildContextBlock } from './auto-context.js';
 import { detectProject, projectDescription } from './project-detect.js';
+import { isRetryableError, calculateDelay } from '../llm/retry.js';
 import { cwd } from 'process';
 
 export interface AgentMessage {
@@ -54,10 +55,11 @@ IDENTITY:
 - Philosophy: Act first, explain later. Use tools to DO, not just DESCRIBE.
 
 AVAILABLE TOOLS:
-- Read(file_path, offset?, limit?): Read file contents
+- Read(file_path, offset?, limit?): Read file contents with line numbers
 - Write(file_path, content): Create or overwrite a file
 - Edit(file_path, old_string, new_string): Replace exact text in a file
-- MultiEdit(file_path, edits): Make multiple targeted replacements in one call. edits is an array of {old_string, new_string}
+- Edit(file_path, start_line, end_line, new_string): Replace lines by line number (1-indexed, end_line exclusive)
+- MultiEdit(file_path, edits): Make multiple targeted replacements in one call. Each edit supports line-based (start_line, end_line, new_string) or text-based (old_string, new_string)
 - Bash(command, timeout?): Run a terminal command
 - Glob(pattern): Find files matching a pattern
 - Grep(pattern, path?, include?, context_lines?, case_insensitive?): Search for regex pattern in files
@@ -68,7 +70,7 @@ AVAILABLE TOOLS:
 
 RULES:
 1. ALWAYS use tools when you need to examine code, edit files, or run commands. Never just describe what you would do.
-2. When editing files, use Edit for single changes or MultiEdit for multiple changes in the same file. Use Write for new files.
+2. When editing files, prefer line-based Edit (using start_line/end_line from Read output) for precise replacements. Use text-based Edit or MultiEdit for simple changes. Use Write for new files.
 3. Think step by step before acting. Wrap your reasoning in <thinking> tags so the user can see your thought process.
 4. If a task has multiple independent parts, consider breaking it down.
 5. You are part of a multi-agent system. Other agents may send you tasks — focus on completing them concisely.
@@ -248,10 +250,15 @@ export class Agent {
 
         // Context window management: compact if approaching limit
         if (needsCompaction(this.messages, this.contextMaxTokens, 0.8)) {
-          const result = compactMessages(this.messages, { preserveRecent: 10, maxTokens: Math.floor(this.contextMaxTokens * 0.6) });
+          const result = await compactMessages(this.messages, {
+            preserveRecent: 10,
+            maxTokens: Math.floor(this.contextMaxTokens * 0.6),
+            llm: this.llm,
+          });
           if (result) {
             this.messages = result.compactedMessages;
-            this.onStream?.(`[Context compacted: ${result.tokensBefore} → ${result.tokensAfter} tokens]\n`);
+            const method = result.llmGenerated ? 'LLM' : 'rule-based';
+            this.onStream?.(`[Context compacted (${method}): ${result.tokensBefore} \u2192 ${result.tokensAfter} tokens]\n`);
           }
         }
 
@@ -279,54 +286,73 @@ export class Agent {
         let finishReason: string | undefined;
         let streamError: string | null = null;
 
-        try {
-          for await (const chunk of this.llm.streamChat(llmMessages, {
-            tools: this.getAvailableTools() as any,
-          }, this.abortController.signal)) {
-            if (chunk.reasoningContent) {
-              reasoningContent += chunk.reasoningContent;
-              if (!reasoningStarted) {
-                reasoningStarted = true;
-                this.onStream?.('<thinking>');
+        // Stream with automatic retry for transient errors
+        const MAX_STREAM_RETRIES = 2;
+        for (let streamAttempt = 0; streamAttempt <= MAX_STREAM_RETRIES; streamAttempt++) {
+          try {
+            for await (const chunk of this.llm.streamChat(llmMessages, {
+              tools: this.getAvailableTools() as any,
+            }, this.abortController.signal)) {
+              if (chunk.reasoningContent) {
+                reasoningContent += chunk.reasoningContent;
+                if (!reasoningStarted) {
+                  reasoningStarted = true;
+                  this.onStream?.('<thinking>');
+                }
+                this.onStream?.(chunk.reasoningContent);
               }
-              this.onStream?.(chunk.reasoningContent);
-            }
-            if (chunk.content) {
-              if (reasoningStarted && reasoningContent) {
-                reasoningStarted = false;
-                this.onStream?.('</thinking>\n\n');
+              if (chunk.content) {
+                if (reasoningStarted && reasoningContent) {
+                  reasoningStarted = false;
+                  this.onStream?.('</thinking>\n\n');
+                }
+                fullContent += chunk.content;
+                this.onStream?.(chunk.content);
               }
-              fullContent += chunk.content;
-              this.onStream?.(chunk.content);
+              if (chunk.usage) {
+                this.totalInputTokens += chunk.usage.inputTokens;
+                this.totalOutputTokens += chunk.usage.outputTokens;
+              }
+              if (chunk.toolCalls) {
+                finalToolCalls = chunk.toolCalls;
+              }
+              if (chunk.finishReason) {
+                finishReason = chunk.finishReason;
+              }
             }
-            if (chunk.usage) {
-              this.totalInputTokens += chunk.usage.inputTokens;
-              this.totalOutputTokens += chunk.usage.outputTokens;
+            break; // Success: exit retry loop
+          } catch (err: any) {
+            const errMsg = err.message || String(err);
+            // Only retry on retryable errors and if we haven't exhausted attempts
+            if (isRetryableError(err) && streamAttempt < MAX_STREAM_RETRIES) {
+              const delay = calculateDelay(streamAttempt, { baseDelay: 2000, maxDelay: 15000 });
+              this.onStream?.(`\n[Retrying stream... attempt ${streamAttempt + 1}/${MAX_STREAM_RETRIES} after ${Math.round(delay)}ms]\n`);
+              await new Promise((r) => setTimeout(r, delay));
+              // Reset partial state for retry
+              fullContent = '';
+              reasoningContent = '';
+              reasoningStarted = false;
+              finalToolCalls = undefined;
+              finishReason = undefined;
+              continue;
             }
-            if (chunk.toolCalls) {
-              finalToolCalls = chunk.toolCalls;
+            // Non-retryable or exhausted retries: handle error
+            streamError = errMsg;
+            let friendlyError = errMsg;
+            if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('api_key')) {
+              friendlyError = '❌ API 密钥无效或已过期。请检查配置: /config 查看当前设置，或设置新的 API Key。';
+            } else if (errMsg.includes('429') || errMsg.includes('rate limit')) {
+              friendlyError = '⚠️ API 请求频率超限，稍后自动重试。如果持续出现，考虑切换模型: /model <name>';
+            } else if (errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT')) {
+              friendlyError = '⏱️ 请求超时。可能是网络问题或模型服务过载，请稍后重试。';
+            } else if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ENOTFOUND') || errMsg.includes('network')) {
+              friendlyError = '🌐 网络连接失败。请检查网络或 API Base URL (/config)。';
+            } else if (errMsg.includes('model') && errMsg.includes('not found')) {
+              friendlyError = `❌ 模型不存在。当前: ${this.llm.getModel()}。请切换: /model <name>`;
             }
-            if (chunk.finishReason) {
-              finishReason = chunk.finishReason;
-            }
+            fullContent += `\n\n${friendlyError}`;
+            break; // Exit retry loop
           }
-        } catch (err: any) {
-          streamError = err.message || String(err);
-          // P0-3: Friendly error messages
-          const errMsg = streamError || '';
-          let friendlyError = errMsg;
-          if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('api_key')) {
-            friendlyError = '❌ API 密钥无效或已过期。请检查配置: /config 查看当前设置，或设置新的 API Key。';
-          } else if (errMsg.includes('429') || errMsg.includes('rate limit')) {
-            friendlyError = '⚠️ API 请求频率超限，稍后自动重试。如果持续出现，考虑切换模型: /model <name>';
-          } else if (errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT')) {
-            friendlyError = '⏱️ 请求超时。可能是网络问题或模型服务过载，请稍后重试。';
-          } else if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ENOTFOUND') || errMsg.includes('network')) {
-            friendlyError = '🌐 网络连接失败。请检查网络或 API Base URL (/config)。';
-          } else if (errMsg.includes('model') && errMsg.includes('not found')) {
-            friendlyError = `❌ 模型不存在。当前: ${this.llm.getModel()}。请切换: /model <name>`;
-          }
-          fullContent += `\n\n${friendlyError}`;
         }
 
         const displayContent = reasoningContent

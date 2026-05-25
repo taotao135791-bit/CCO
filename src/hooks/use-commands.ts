@@ -10,6 +10,7 @@ import { codeIndexer } from '../core/tools/indexer.js';
 import { buildCostReport } from '../core/llm/cost-estimate.js';
 import { detectProject, projectDescription } from '../core/agent/project-detect.js';
 import { diffTracker } from '../core/tools/diff-tracker.js';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { pluginLoader } from '../core/plugins/loader.js';
 import { listTemplates, applyTemplate } from '../core/tools/template-gen.js';
 import { authStore } from '../core/auth/auth-store.js';
@@ -313,11 +314,19 @@ export function useCommands(deps: CommandDeps) {
         case 'search': {
           const query = args.join(' ');
           if (query) {
-            const results = codeIndexer.search(query);
-            const text = results.map((r) => `  • ${r.path} (${(r.size / 1024).toFixed(1)} KB)`).join('\n');
-            addSystemMessage(`搜索 "${query}" 的结果:\n${text || '无匹配结果'}`);
+            // Symbol search: "func:handleCommand" or "class:Agent"
+            const symbolResults = codeIndexer.searchSymbols(query);
+            if (symbolResults.length > 0) {
+              const lines = symbolResults.map((s) => `  ${s.kind} ${s.name} — ${s.file}:${s.line}`);
+              addSystemMessage(`Symbol search "${query}":\n${lines.join('\n')}`);
+            } else {
+              // Fallback to file content search
+              const results = codeIndexer.search(query);
+              const text = results.map((r) => `  • ${r.path} (${(r.size / 1024).toFixed(1)} KB)`).join('\n');
+              addSystemMessage(`搜索 "${query}" 的结果:\n${text || '无匹配结果'}`);
+            }
           } else {
-            addSystemMessage('用法: /search <查询关键词>');
+            addSystemMessage('用法: /search <查询> 或 /search func:<name> 搜索符号');
           }
           break;
         }
@@ -430,6 +439,27 @@ export function useCommands(deps: CommandDeps) {
         case 'diff': {
           const summary = diffTracker.summary();
           addSystemMessage(summary);
+          break;
+        }
+
+        case 'undo': {
+          const lastDiff = diffTracker.pop();
+          if (!lastDiff) {
+            addSystemMessage('没有可回滚的编辑。只有本次会话中的 Edit/Write 操作可回滚。');
+            break;
+          }
+          try {
+            if (!existsSync(lastDiff.filePath)) {
+              addSystemMessage(`回滚失败: 文件不存在 ${lastDiff.filePath}`);
+              break;
+            }
+            writeFileSync(lastDiff.filePath, lastDiff.oldContent, 'utf-8');
+            const oldLines = lastDiff.oldContent.split('\n').length;
+            const curLines = lastDiff.newContent.split('\n').length;
+            addSystemMessage(`✅ 已回滚: ${lastDiff.filePath}\n  ${curLines} → ${oldLines} lines (恢复到编辑前状态)`);
+          } catch (err: any) {
+            addSystemMessage(`回滚失败: ${err.message || String(err)}`);
+          }
           break;
         }
 

@@ -33,6 +33,16 @@ class DiffTracker {
     return this.diffs.length;
   }
 
+  /** Pop the last recorded diff (for undo). Returns the diff or null. */
+  pop(): FileDiff | null {
+    return this.diffs.pop() || null;
+  }
+
+  /** Get the last diff without removing it (for preview). */
+  peek(): FileDiff | null {
+    return this.diffs.length > 0 ? this.diffs[this.diffs.length - 1] : null;
+  }
+
   /** Generate a summary string for /diff command */
   summary(): string {
     if (this.diffs.length === 0) return '本次会话未修改任何文件。';

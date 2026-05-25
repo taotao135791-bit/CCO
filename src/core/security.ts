@@ -21,6 +21,24 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   // Dangerous eval
   /\beval\s+/,
 
+  // Inline code execution via interpreters
+  /\bpython3?\s+-c\s+/,
+  /\bnode\s+-e\s+/,
+  /\bperl\s+-e\s+/,
+  /\bruby\s+-e\s+/,
+
+  // Base64 decode piping (encoding bypass)
+  /\bbase64\s+(-d|--decode)\b.*\|\s*(bash|sh|zsh|node|python|perl|ruby)\b/,
+  /\|\s*base64\s+(-d|--decode)\b.*\|\s*(bash|sh|zsh)\b/,
+
+  // Heredoc execution with shell
+  /<<\s*['"]?(EOF|SHELL|BASH)['"]?.*\|\s*(bash|sh|zsh)\b/,
+
+  // Environment variable exfiltration
+  /\b(printenv|env)\s*(\|\s*(grep|cat|head|tail|sort|awk|sed))?\s*$/,
+  /\bset\s*\|\s*grep\b/,
+  /\bdeclare\s+-p\b/,
+
   // System-level operations
   /\bmkfs\b/,
   /\bdd\s+.*of=\/dev\//,
@@ -32,18 +50,31 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /:\(\)\s*\{\s*:\|:\s*&\s*\}\s*;/,
 
   // Credential theft
-  /\bcat\b.*\b\.ssh\b/,
-  /\bcat\b.*\b\.aws\b/,
-  /\bcat\b.*\b\.env\b/,
+  /\bcat\b.*\.ssh\b/,
+  /\bcat\b.*\.aws\b/,
+  /\bcat\b.*\.env\b/,
+  /\bcat\b.*\.npmrc\b/,
+  /\bcat\b.*\.pypirc\b/,
 ];
 
 // Normalize a command string for pattern matching
 // Strips absolute paths from commands: /bin/rm -> rm, /usr/bin/curl -> curl
+// Also expands $() and backtick subshells for deeper inspection
 function normalizeCommand(cmd: string): string {
-  return cmd
+  let normalized = cmd
     .replace(/\/(?:usr\/)?(?:local\/)?(?:s?bin)\//g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  // Expand $() subshell references to expose nested commands
+  // e.g., "echo $(python3 -c 'import os')" -> "echo  python3 -c 'import os'"
+  normalized = normalized.replace(/\$\(([^)]+)\)/g, '$1');
+
+  // Expand backtick subshell references
+  // e.g., "echo `python3 -c 'import os'`" -> "echo  python3 -c 'import os'"
+  normalized = normalized.replace(/`([^`]+)`/g, '$1');
+
+  return normalized;
 }
 
 /**

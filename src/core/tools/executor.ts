@@ -9,6 +9,7 @@ import type { ToolDefinition, ToolResult } from './definitions.js';
 import { validateBashCommand, validateUrl, clampTimeout } from '../security.js';
 import { editLock } from './edit-lock.js';
 import { diffTracker } from './diff-tracker.js';
+import { runPostEditLint, formatLintWarning } from './lint-runner.js';
 
 const execAsync = promisify(exec);
 
@@ -230,14 +231,21 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
         const stat = statSync(path);
         if (stat.isDirectory()) return { content: `Error: ${path} is a directory`, isError: true };
-        let content = readFileSync(path, 'utf-8');
+        let rawContent = readFileSync(path, 'utf-8');
+        let allLines = rawContent.split('\n');
+        const totalLines = allLines.length;
         if (args.offset || args.limit) {
-          const lines = content.split('\n');
           const start = (args.offset ?? 1) - 1;
-          const end = args.limit ? start + args.limit : lines.length;
-          content = lines.slice(start, end).join('\n');
+          const end = args.limit ? start + args.limit : allLines.length;
+          allLines = allLines.slice(start, end);
+          // Add line numbers (1-indexed, based on original file position)
+          const numbered = allLines.map((line, i) => `${String(start + i + 1).padStart(4)} | ${line}`);
+          return { content: truncateOutput(numbered.join('\n')) };
         }
-        return { content: truncateOutput(content) };
+        // Full file with line numbers
+        const numbered = allLines.map((line, i) => `${String(i + 1).padStart(4)} | ${line}`);
+        const header = `[${totalLines} lines] ${relative(cwd(), path) || path}`;
+        return { content: truncateOutput(header + '\n' + numbered.join('\n')) };
       }
 
       case 'Write': {
@@ -250,7 +258,10 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
           const oldContent = existsSync(path) ? readFileSync(path, 'utf-8') : '';
           writeFileSync(path, args.content, 'utf-8');
           diffTracker.record(path, oldContent, args.content);
-          return { content: `Successfully wrote ${args.content.length} bytes to ${path}` };
+          let result = `Successfully wrote ${args.content.length} bytes to ${path}`;
+          const lintResult = runPostEditLint(path);
+          if (lintResult) result += formatLintWarning(lintResult);
+          return { content: result };
         } finally {
           releaseWrite();
         }
@@ -264,22 +275,44 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         try {
           if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
           let content = readFileSync(path, 'utf-8');
-          if (!content.includes(args.old_string)) {
-            return { content: `Error: Could not find the specified text in ${path}`, isError: true };
-          }
-          const occurrences = content.split(args.old_string).length - 1;
-          if (occurrences > 1) {
-            return {
-              content: `Error: Found ${occurrences} matches in ${path}. Edit requires old_string to match exactly one location.`,
-              isError: true,
-            };
-          }
           const oldContent = content;
-          content = content.replace(args.old_string, args.new_string);
+          const lines = content.split('\n');
+
+          // Line-based mode: start_line + end_line + new_string
+          if (args.start_line !== undefined && args.end_line !== undefined && args.new_string !== undefined) {
+            const startIdx = Math.max(0, args.start_line - 1);
+            const endIdx = Math.min(lines.length, args.end_line); // exclusive upper bound
+            if (startIdx >= lines.length) {
+              return { content: `Error: start_line ${args.start_line} exceeds file length (${lines.length} lines)`, isError: true };
+            }
+            const newLines = args.new_string.split('\n');
+            lines.splice(startIdx, endIdx - startIdx, ...newLines);
+            content = lines.join('\n');
+          }
+          // Text-based mode: old_string + new_string
+          else if (args.old_string !== undefined && args.new_string !== undefined) {
+            if (!content.includes(args.old_string)) {
+              return { content: `Error: Could not find the specified text in ${path}`, isError: true };
+            }
+            const occurrences = content.split(args.old_string).length - 1;
+            if (occurrences > 1) {
+              return {
+                content: `Error: Found ${occurrences} matches in ${path}. Edit requires old_string to match exactly one location.`,
+                isError: true,
+              };
+            }
+            content = content.replace(args.old_string, args.new_string);
+          } else {
+            return { content: 'Error: Provide either (start_line + end_line + new_string) or (old_string + new_string)', isError: true };
+          }
+
           writeFileSync(path, content, 'utf-8');
           diffTracker.record(path, oldContent, content);
           const diff = generateDiff(oldContent, content, path);
-          return { content: `Successfully edited ${path}\n\n${diff}` };
+          let result = `Successfully edited ${path}\n\n${diff}`;
+          const lintResult = runPostEditLint(path);
+          if (lintResult) result += formatLintWarning(lintResult);
+          return { content: result };
         } finally {
           releaseEdit();
         }
@@ -294,36 +327,55 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
           if (!existsSync(path)) return { content: `Error: File not found: ${path}`, isError: true };
           let content = readFileSync(path, 'utf-8');
           const oldContent = content;
-          const edits: Array<{ old_string: string; new_string: string }> = args.edits || [];
+          const edits: Array<{ old_string?: string; new_string: string; start_line?: number; end_line?: number }> = args.edits || [];
           if (!Array.isArray(edits) || edits.length === 0) {
-            return { content: 'Error: edits must be a non-empty array of {old_string, new_string}', isError: true };
+            return { content: 'Error: edits must be a non-empty array', isError: true };
           }
           const applied: number[] = [];
           const failed: string[] = [];
           for (let i = 0; i < edits.length; i++) {
-            const { old_string, new_string } = edits[i];
-            if (!old_string || new_string === undefined) {
-              failed.push(`Edit #${i + 1}: missing old_string or new_string`);
+            const edit = edits[i];
+            // Line-based mode
+            if (edit.start_line !== undefined && edit.end_line !== undefined && edit.new_string !== undefined) {
+              const lines = content.split('\n');
+              const startIdx = Math.max(0, edit.start_line - 1);
+              const endIdx = Math.min(lines.length, edit.end_line);
+              if (startIdx >= lines.length) {
+                failed.push(`Edit #${i + 1}: start_line ${edit.start_line} exceeds file length`);
+                continue;
+              }
+              const newLines = edit.new_string.split('\n');
+              lines.splice(startIdx, endIdx - startIdx, ...newLines);
+              content = lines.join('\n');
+              applied.push(i + 1);
               continue;
             }
-            if (!content.includes(old_string)) {
-              failed.push(`Edit #${i + 1}: text not found`);
+            // Text-based mode
+            if (edit.old_string !== undefined && edit.new_string !== undefined) {
+              if (!content.includes(edit.old_string)) {
+                failed.push(`Edit #${i + 1}: text not found`);
+                continue;
+              }
+              const occ = content.split(edit.old_string).length - 1;
+              if (occ > 1) {
+                failed.push(`Edit #${i + 1}: ${occ} matches (ambiguous)`);
+                continue;
+              }
+              content = content.replace(edit.old_string, edit.new_string);
+              applied.push(i + 1);
               continue;
             }
-            const occ = content.split(old_string).length - 1;
-            if (occ > 1) {
-              failed.push(`Edit #${i + 1}: ${occ} matches (ambiguous)`);
-              continue;
-            }
-            content = content.replace(old_string, new_string);
-            applied.push(i + 1);
+            failed.push(`Edit #${i + 1}: must provide (start_line+end_line+new_string) or (old_string+new_string)`);
           }
           writeFileSync(path, content, 'utf-8');
           diffTracker.record(path, oldContent, content);
           const diff = generateDiff(oldContent, content, path);
           const summary = `Applied ${applied.length}/${edits.length} edits to ${path}`;
           const failInfo = failed.length > 0 ? `\nFailed:\n${failed.join('\n')}` : '';
-          return { content: `${summary}${failInfo}\n\n${diff}` };
+          let multiResult = `${summary}${failInfo}\n\n${diff}`;
+          const lintResult = runPostEditLint(path);
+          if (lintResult) multiResult += formatLintWarning(lintResult);
+          return { content: multiResult };
         } finally {
           releaseMulti();
         }

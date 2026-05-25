@@ -28,7 +28,7 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'Read',
-      description: 'Read the contents of a file. Use offset and limit for large files.',
+      description: 'Read the contents of a file with line numbers. Use offset and limit for large files.',
       parameters: {
         type: 'object',
         properties: {
@@ -59,15 +59,17 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'Edit',
-      description: 'Make targeted edits to a file by replacing specific text. Returns a unified diff preview.',
+      description: 'Make targeted edits to a file. Supports two modes: (1) Line-based: provide start_line and end_line to replace lines by number. (2) Text-based: provide old_string and new_string for exact text replacement. Returns a unified diff preview.',
       parameters: {
         type: 'object',
         properties: {
           file_path: { type: 'string', description: 'Absolute or relative path to the file' },
-          old_string: { type: 'string', description: 'The exact text to replace' },
+          old_string: { type: 'string', description: 'The exact text to replace (text-based mode)' },
           new_string: { type: 'string', description: 'The replacement text' },
+          start_line: { type: 'number', description: 'Start line number for line-based replacement (1-indexed)' },
+          end_line: { type: 'number', description: 'End line number for line-based replacement (1-indexed, inclusive)' },
         },
-        required: ['file_path', 'old_string', 'new_string'],
+        required: ['file_path'],
       },
     },
   },
@@ -75,7 +77,7 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'MultiEdit',
-      description: 'Make multiple targeted replacements in a single file in one call. More efficient than calling Edit multiple times. Returns a unified diff of all changes.',
+      description: 'Make multiple targeted replacements in a single file in one call. Each edit supports line-based (start_line/end_line) or text-based (old_string/new_string) mode.',
       parameters: {
         type: 'object',
         properties: {
@@ -86,10 +88,11 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
             items: {
               type: 'object',
               properties: {
-                old_string: { type: 'string', description: 'The exact text to replace' },
+                old_string: { type: 'string', description: 'The exact text to replace (text-based mode)' },
                 new_string: { type: 'string', description: 'The replacement text' },
+                start_line: { type: 'number', description: 'Start line number (1-indexed)' },
+                end_line: { type: 'number', description: 'End line number (1-indexed, inclusive)' },
               },
-              required: ['old_string', 'new_string'],
             },
           },
         },

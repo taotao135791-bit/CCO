@@ -30,6 +30,37 @@ describe('Security – validateBashCommand', () => {
     expect(validateBashCommand('eval "echo hello"')).not.toBeNull();
   });
 
+  it('should block inline interpreter execution', () => {
+    expect(validateBashCommand('python3 -c "import os; os.system(\'rm -rf /\')"')).not.toBeNull();
+    expect(validateBashCommand('python -c "print(1)"')).not.toBeNull();
+    expect(validateBashCommand('node -e "require(\'fs\').unlinkSync(\'/tmp/x\')"')).not.toBeNull();
+    expect(validateBashCommand('perl -e "system(\'rm -rf /\')"')).not.toBeNull();
+    expect(validateBashCommand('ruby -e "puts 1"')).not.toBeNull();
+  });
+
+  it('should block base64 decode piping', () => {
+    expect(validateBashCommand('echo "cm0gLXJmIC8=" | base64 -d | bash')).not.toBeNull();
+    expect(validateBashCommand('base64 --decode payload.txt | sh')).not.toBeNull();
+  });
+
+  it('should block environment variable exfiltration', () => {
+    expect(validateBashCommand('printenv')).not.toBeNull();
+    expect(validateBashCommand('env')).not.toBeNull();
+    expect(validateBashCommand('set | grep API')).not.toBeNull();
+    expect(validateBashCommand('declare -p')).not.toBeNull();
+  });
+
+  it('should block credential file access', () => {
+    expect(validateBashCommand('cat ~/.ssh/id_rsa')).not.toBeNull();
+    expect(validateBashCommand('cat ~/.npmrc')).not.toBeNull();
+    expect(validateBashCommand('cat ~/.pypirc')).not.toBeNull();
+  });
+
+  it('should detect commands hidden in subshells', () => {
+    expect(validateBashCommand('echo $(python3 -c "import os")')).not.toBeNull();
+    expect(validateBashCommand('echo `sudo rm -rf /`')).not.toBeNull();
+  });
+
   it('should block chmod 777', () => {
     expect(validateBashCommand('chmod 777 /etc/passwd')).not.toBeNull();
   });

@@ -50,9 +50,9 @@ describe('Context Manager – needsCompaction', () => {
 });
 
 describe('Context Manager – compactMessages', () => {
-  it('should compact messages preserving system prompt and recent', () => {
+  it('should compact messages preserving system prompt and recent', async () => {
     const msgs = makeMessages(50);
-    const result = compactMessages(msgs, { preserveRecent: 10, maxTokens: 50000 });
+    const result = await compactMessages(msgs, { preserveRecent: 10, maxTokens: 50000 });
     if (result) {
       expect(result.compactedMessages.length).toBeLessThan(msgs.length);
       expect(result.compactedMessages[0].role).toBe('system');
@@ -60,9 +60,9 @@ describe('Context Manager – compactMessages', () => {
     }
   });
 
-  it('should return null for small message sets', () => {
+  it('should return null for small message sets', async () => {
     const msgs = makeMessages(3);
-    const result = compactMessages(msgs, { preserveRecent: 10, maxTokens: 100000 });
+    const result = await compactMessages(msgs, { preserveRecent: 10, maxTokens: 100000 });
     // Either null or no actual compaction needed
     if (result) {
       expect(result.tokensAfter).toBeLessThanOrEqual(result.tokensBefore);
